@@ -112,10 +112,10 @@
           <div class="stat">🧭 Level: <strong id="level">1</strong></div>
           <div class="stat">❤️ Leben: <strong id="hearts">5</strong></div>
           <div class="stat">⚔️ Schaden: <strong id="damage">1</strong></div>
-          <div class="stat">💎 Rubine: <strong id="rupees">0</strong> / 8</div>
+          <div class="stat">💚 Esmeralden: <strong id="rupees">0</strong> / 8</div>
           <div class="stat">👾 Gegner: <strong id="enemies">0</strong></div>
         </div>
-        <div class="stat" id="message">Sammle 8 Rubine, besiege Bokoblins und gehe in den Tempel für das nächste Level!</div>
+        <div class="stat" id="message">Sammle 8 Esmeralden, besiege Bokoblins und gehe in den Tempel für das nächste Level!</div>
       </div>
 
       <div class="canvas-wrap">
@@ -154,7 +154,7 @@
         templeDoor: "#684f27",
         shop: "#7b4db5",
         shopDoor: "#2c1744",
-        rupee: "#6bf8df",
+        rupee: "#42d86d",
         link: "#f2d7b0",
         linkHair: "#9b6730",
         linkTunic: "#2e80c9",
@@ -422,7 +422,7 @@
         endParticles = [];
 
         if (isShopLevel) {
-          setMessage("Shop-Level! Ganze Karte ist der Shop: links Herz (+1 Leben, 3 Rubine), rechts Schwert (+1 Schaden, 5 Rubine).");
+          setMessage("Shop-Level! Ganze Karte ist der Shop: links Herz (+1 Leben, 3 Esmeralden), rechts Schwert (+1 Schaden, 5 Esmeralden).");
         } else {
           setMessage(`Level ${level}: ${enemyCount} Bokoblins (5 HP, teils mit Bogen) und ${levelWallCount} Wände warten.`);
         }
@@ -730,7 +730,7 @@
             rupee.taken = true;
             player.rupees += 1;
             if (player.rupees === MAX_RUPEES) {
-              setMessage("Alle Rubine gesammelt! Schalte die letzten Bokoblins aus und geh zum Tempel.");
+              setMessage("Alle Esmeralden gesammelt! Schalte die letzten Bokoblins aus und geh zum Tempel.");
             }
           }
         }
@@ -748,7 +748,7 @@
       function buyHeart() {
         if (!inShop) return;
         if (player.rupees < 3) {
-          setMessage("Nicht genug Rubine für ein Herz (3).", true);
+          setMessage("Nicht genug Esmeralden für ein Herz (3).", true);
           return;
         }
         player.rupees -= 3;
@@ -760,7 +760,7 @@
       function buyDamage() {
         if (!inShop) return;
         if (player.rupees < 5) {
-          setMessage("Nicht genug Rubine für Schaden (5).", true);
+          setMessage("Nicht genug Esmeralden für Schaden (5).", true);
           return;
         }
         player.rupees -= 5;
@@ -999,9 +999,20 @@
         for (const rupee of rupees) {
           if (rupee.taken) continue;
           const depthScale = 0.92 + (rupee.y / WORLD_H) * 0.22;
-          const halfW = 6 * depthScale;
-          const halfH = 8 * depthScale;
-          ctx.fillStyle = COLORS.rupee;
+          const halfW = 6.4 * depthScale;
+          const halfH = 8.8 * depthScale;
+
+          ctx.fillStyle = COLORS.shadow;
+          ctx.beginPath();
+          ctx.ellipse(rupee.x, rupee.y + 8.6 * depthScale, 8.5 * depthScale, 4.2 * depthScale, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          const gemGrad = ctx.createLinearGradient(rupee.x - halfW, rupee.y + halfH, rupee.x + halfW, rupee.y - halfH);
+          gemGrad.addColorStop(0, "#1d8b44");
+          gemGrad.addColorStop(0.55, COLORS.rupee);
+          gemGrad.addColorStop(1, "#a8ffc7");
+
+          ctx.fillStyle = gemGrad;
           ctx.beginPath();
           ctx.moveTo(rupee.x, rupee.y - halfH);
           ctx.lineTo(rupee.x + halfW, rupee.y);
@@ -1009,6 +1020,35 @@
           ctx.lineTo(rupee.x - halfW, rupee.y);
           ctx.closePath();
           ctx.fill();
+
+          ctx.strokeStyle = "#127336";
+          ctx.lineWidth = 1.25 * depthScale;
+          ctx.stroke();
+
+          ctx.fillStyle = "rgba(194, 255, 214, 0.92)";
+          ctx.beginPath();
+          ctx.moveTo(rupee.x, rupee.y - halfH + 1.2 * depthScale);
+          ctx.lineTo(rupee.x + 2.5 * depthScale, rupee.y - 1.1 * depthScale);
+          ctx.lineTo(rupee.x - 1 * depthScale, rupee.y - 0.6 * depthScale);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.fillStyle = "rgba(9, 72, 34, 0.45)";
+          ctx.beginPath();
+          ctx.moveTo(rupee.x, rupee.y + halfH - 1.2 * depthScale);
+          ctx.lineTo(rupee.x + halfW - 1.4 * depthScale, rupee.y + 0.5 * depthScale);
+          ctx.lineTo(rupee.x + 1.2 * depthScale, rupee.y + 0.8 * depthScale);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.strokeStyle = "rgba(211, 255, 223, 0.6)";
+          ctx.lineWidth = 0.9 * depthScale;
+          ctx.beginPath();
+          ctx.moveTo(rupee.x, rupee.y - halfH + 0.7 * depthScale);
+          ctx.lineTo(rupee.x, rupee.y + halfH - 1.4 * depthScale);
+          ctx.moveTo(rupee.x - halfW + 1.2 * depthScale, rupee.y);
+          ctx.lineTo(rupee.x + halfW - 1.2 * depthScale, rupee.y);
+          ctx.stroke();
         }
       }
 
