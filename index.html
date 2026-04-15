@@ -139,6 +139,7 @@
       const MAP_H = 13;
       const MAX_RUPEES = 8;
       const WORLD_H = MAP_H * TILE;
+      const SAFE_SPAWN_ATTEMPTS = 800;
 
       const COLORS = {
         grass: "#2f8f46",
@@ -186,37 +187,76 @@
       }
 
       function generateRandomLevel() {
-        const grid = Array.from({ length: MAP_H }, (_, y) =>
-          Array.from({ length: MAP_W }, (_, x) => (x === 0 || y === 0 || x === MAP_W - 1 || y === MAP_H - 1 ? "#" : ".")),
-        );
-
         const reserved = new Set(["1,1", "1,2", "2,1", "2,2", "3,1", "1,3"]);
-        const wallCount = randInt(8, 34);
 
-        let placedWalls = 0;
-        let tries = 0;
-        while (placedWalls < wallCount && tries < 600) {
-          tries += 1;
-          const x = randInt(1, MAP_W - 2);
-          const y = randInt(1, MAP_H - 2);
-          if (reserved.has(`${x},${y}`)) continue;
-          if (grid[y][x] !== ".") continue;
-          grid[y][x] = "#";
-          placedWalls += 1;
+        for (let attempt = 0; attempt < 140; attempt += 1) {
+          const grid = Array.from({ length: MAP_H }, (_, y) =>
+            Array.from({ length: MAP_W }, (_, x) => (x === 0 || y === 0 || x === MAP_W - 1 || y === MAP_H - 1 ? "#" : ".")),
+          );
+
+          const wallCount = randInt(8, 34);
+
+          let placedWalls = 0;
+          let tries = 0;
+          while (placedWalls < wallCount && tries < 600) {
+            tries += 1;
+            const x = randInt(1, MAP_W - 2);
+            const y = randInt(1, MAP_H - 2);
+            if (reserved.has(`${x},${y}`)) continue;
+            if (grid[y][x] !== ".") continue;
+            grid[y][x] = "#";
+            placedWalls += 1;
+          }
+
+          let templePlaced = false;
+          while (!templePlaced) {
+            const tx = randInt(1, MAP_W - 2);
+            const ty = randInt(1, MAP_H - 2);
+            if (reserved.has(`${tx},${ty}`)) continue;
+            if (grid[ty][tx] !== ".") continue;
+            grid[ty][tx] = "T";
+            templePlaced = true;
+          }
+
+          if (isLevelReachable(grid)) {
+            levelWallCount = placedWalls;
+            return grid.map((row) => row.join(""));
+          }
         }
 
-        let templePlaced = false;
-        while (!templePlaced) {
-          const tx = randInt(1, MAP_W - 2);
-          const ty = randInt(1, MAP_H - 2);
-          if (reserved.has(`${tx},${ty}`)) continue;
-          if (grid[ty][tx] !== ".") continue;
-          grid[ty][tx] = "T";
-          templePlaced = true;
+        levelWallCount = 0;
+        return Array.from({ length: MAP_H }, (_, y) =>
+          Array.from({ length: MAP_W }, (_, x) => (x === 0 || y === 0 || x === MAP_W - 1 || y === MAP_H - 1 ? "#" : ".")).join(""),
+        );
+      }
+
+      function isLevelReachable(grid) {
+        const start = { x: 1, y: 1 };
+        const queue = [start];
+        const visited = new Set([`${start.x},${start.y}`]);
+
+        while (queue.length > 0) {
+          const current = queue.shift();
+          if (grid[current.y][current.x] === "T") return true;
+
+          const nextCells = [
+            [current.x + 1, current.y],
+            [current.x - 1, current.y],
+            [current.x, current.y + 1],
+            [current.x, current.y - 1],
+          ];
+
+          for (const [nx, ny] of nextCells) {
+            if (nx < 1 || ny < 1 || nx >= MAP_W - 1 || ny >= MAP_H - 1) continue;
+            if (grid[ny][nx] === "#") continue;
+            const key = `${nx},${ny}`;
+            if (visited.has(key)) continue;
+            visited.add(key);
+            queue.push({ x: nx, y: ny });
+          }
         }
 
-        levelWallCount = placedWalls;
-        return grid.map((row) => row.join(""));
+        return false;
       }
 
       function setMessage(text, warning = false) {
@@ -246,12 +286,14 @@
       }
 
       function randomWalkablePosition() {
-        while (true) {
+        for (let attempts = 0; attempts < SAFE_SPAWN_ATTEMPTS; attempts += 1) {
           const tx = 1 + Math.floor(Math.random() * (MAP_W - 2));
           const ty = 1 + Math.floor(Math.random() * (MAP_H - 2));
           if (map[ty][tx] !== ".") continue;
           return { x: tx * TILE + TILE / 2, y: ty * TILE + TILE / 2 };
         }
+
+        return { x: TILE * 1.5, y: TILE * 1.5 };
       }
 
       function dist(a, b) {
