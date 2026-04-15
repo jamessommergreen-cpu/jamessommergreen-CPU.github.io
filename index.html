@@ -34,7 +34,6 @@
         width: min(96vw, 920px);
         display: grid;
         gap: 0.8rem;
-        perspective: 1100px;
       }
 
       .hud {
@@ -76,8 +75,7 @@
         background: #122536;
         image-rendering: pixelated;
         box-shadow: 0 22px 38px rgba(0, 0, 0, 0.42), 0 10px 14px rgba(0, 0, 0, 0.28);
-        transform: rotateX(11deg) rotateZ(-1.5deg);
-        transform-origin: center top;
+        transform: none;
       }
 
       .canvas-wrap {
@@ -482,8 +480,7 @@
       }
 
       function drawMap() {
-        const horizon = 42;
-        const floorGrad = ctx.createLinearGradient(0, horizon, 0, canvas.height);
+        const floorGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
         floorGrad.addColorStop(0, "#5ab879");
         floorGrad.addColorStop(1, "#2a6f3e");
         ctx.fillStyle = floorGrad;
@@ -497,34 +494,20 @@
 
             if (cell === "#") {
               ctx.fillStyle = COLORS.wall;
-              ctx.fillRect(px, py + 6, TILE, TILE - 6);
-              ctx.fillStyle = "#1b252f";
-              ctx.beginPath();
-              ctx.moveTo(px + TILE, py + 6);
-              ctx.lineTo(px + TILE + 7, py + 11);
-              ctx.lineTo(px + TILE + 7, py + TILE + 5);
-              ctx.lineTo(px + TILE, py + TILE);
-              ctx.closePath();
-              ctx.fill();
+              ctx.fillRect(px, py, TILE, TILE);
               ctx.fillStyle = COLORS.wallTop;
-              ctx.fillRect(px, py, TILE, 8);
+              ctx.fillRect(px, py, TILE, 6);
             } else if (cell === "T") {
               const g = ctx.createLinearGradient(px, py, px, py + TILE);
               g.addColorStop(0, "#f2ce77");
               g.addColorStop(1, COLORS.temple);
               ctx.fillStyle = g;
-              ctx.fillRect(px, py + 3, TILE, TILE - 3);
+              ctx.fillRect(px, py, TILE, TILE);
               ctx.fillStyle = COLORS.templeDoor;
               ctx.fillRect(px + 10, py + 10, 12, 18);
             } else {
               ctx.fillStyle = (x + y) % 2 === 0 ? COLORS.grass : COLORS.grassAlt;
-              ctx.beginPath();
-              ctx.moveTo(px, py + 5);
-              ctx.lineTo(px + TILE, py);
-              ctx.lineTo(px + TILE, py + TILE - 3);
-              ctx.lineTo(px, py + TILE + 2);
-              ctx.closePath();
-              ctx.fill();
+              ctx.fillRect(px, py, TILE, TILE);
             }
           }
         }
