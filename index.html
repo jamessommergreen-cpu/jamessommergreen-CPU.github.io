@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Legend of Zelda: Breath of the Wild</title>
+    <style>
+      :root {
+        --bg: #0a1f29;
+        --bg-soft: #123647;
+        --text: #e9f3f7;
+        --accent: #57c3dd;
+        --accent-2: #ffd166;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background: linear-gradient(180deg, var(--bg), #081319);
+        color: var(--text);
+        line-height: 1.6;
+      }
+
+      header {
+        padding: 4rem 1.5rem 2rem;
+        text-align: center;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(2rem, 5vw, 3.2rem);
+        letter-spacing: 0.04em;
+      }
+
+      .subtitle {
+        color: #b6d9e3;
+        margin-top: 0.8rem;
+      }
+
+      main {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 1.5rem;
+        display: grid;
+        gap: 1.25rem;
+      }
+
+      .card {
+        background: rgba(18, 54, 71, 0.65);
+        border: 1px solid rgba(87, 195, 221, 0.35);
+        border-radius: 16px;
+        padding: 1.2rem;
+        backdrop-filter: blur(2px);
+      }
+
+      h2 {
+        margin-top: 0;
+        color: var(--accent);
+      }
+
+      ul {
+        margin: 0;
+        padding-left: 1.1rem;
+      }
+
+      .cta {
+        display: inline-block;
+        margin-top: 0.8rem;
+        padding: 0.65rem 1rem;
+        border-radius: 999px;
+        color: #041117;
+        background: linear-gradient(120deg, var(--accent), var(--accent-2));
+        text-decoration: none;
+        font-weight: 700;
+      }
+
+      footer {
+        text-align: center;
+        opacity: 0.8;
+        padding: 2rem 1.5rem 2.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Zelda: Breath of the Wild</h1>
+      <p class="subtitle">Ein kleines Fan-Poster als Webseite für Hyrule-Abenteurer.</p>
+    </header>
+
+    <main>
+      <section class="card">
+        <h2>Worum geht's?</h2>
+        <p>
+          In <strong>The Legend of Zelda: Breath of the Wild</strong> erkundest du ein riesiges,
+          offenes Hyrule, löst Schreine, kämpfst gegen Wächter und bereitest dich auf das Duell
+          gegen die Verheerung Ganon vor.
+        </p>
+      </section>
+
+      <section class="card">
+        <h2>Highlights</h2>
+        <ul>
+          <li>Offene Welt mit nahezu grenzenloser Freiheit</li>
+          <li>Physik-basierte Rätsel und kreative Kampfmöglichkeiten</li>
+          <li>Kochen, Klettern, Reiten und Entdecken an jeder Ecke</li>
+          <li>Unvergesslicher Soundtrack und Atmosphäre</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>Legendärer Tipp</h2>
+        <p>
+          Markiere auf deiner Karte wichtige Schreine und Türme frühzeitig – so baust du dir ein
+          schnelles Reise-Netzwerk für die gesamte Story auf.
+        </p>
+        <a class="cta" href="https://www.zelda.com/breath-of-the-wild/" target="_blank" rel="noopener noreferrer">Offizielle BOTW-Seite</a>
+      </section>
+    </main>
+
+    <footer>
+      Für Fans von Link, Zelda und ganz viel Entdeckergeist.
+    </footer>
+  </body>
+</html>
