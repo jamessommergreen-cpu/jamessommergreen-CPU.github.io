@@ -720,12 +720,12 @@
           ctx.fill();
           ctx.fillStyle = COLORS.linkHair;
           ctx.beginPath();
+          ctx.ellipse(player.x, player.y - 9.5 * depthScale, 5.8 * depthScale, 2.8 * depthScale, 0, 0, Math.PI * 2);
           ctx.ellipse(player.x - 5 * depthScale, player.y - 6 * depthScale, 3 * depthScale, 3 * depthScale, 0, 0, Math.PI * 2);
           ctx.ellipse(player.x + 5 * depthScale, player.y - 6 * depthScale, 3 * depthScale, 3 * depthScale, 0, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = COLORS.linkHat;
-          ctx.beginPath();
-          ctx.ellipse(player.x, player.y - 10 * depthScale, 9 * depthScale, 5.6 * depthScale, 0, 0, Math.PI * 2);
+          ctx.ellipse(player.x - 7.2 * depthScale, player.y - 4.5 * depthScale, 1.6 * depthScale, 2.8 * depthScale, -0.2, 0, Math.PI * 2);
+          ctx.ellipse(player.x + 7.2 * depthScale, player.y - 4.5 * depthScale, 1.6 * depthScale, 2.8 * depthScale, 0.2, 0, Math.PI * 2);
+          ctx.ellipse(player.x + 2.5 * depthScale, player.y - 1.5 * depthScale, 2 * depthScale, 5.5 * depthScale, 0.4, 0, Math.PI * 2);
           ctx.fill();
           ctx.fillStyle = "#cde3ff";
           ctx.fillRect(player.x - 2.5 * depthScale, player.y - 6.8 * depthScale, 1.2 * depthScale, 1.2 * depthScale);
