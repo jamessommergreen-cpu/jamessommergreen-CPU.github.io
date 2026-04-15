@@ -31,7 +31,7 @@
       }
 
       .game-shell {
-        width: min(96vw, 920px);
+        width: min(96vw, 1100px);
         display: grid;
         gap: 0.8rem;
       }
@@ -107,13 +107,13 @@
           <div class="stat">💎 Rubine: <strong id="rupees">0</strong> / 8</div>
           <div class="stat">👾 Gegner: <strong id="enemies">0</strong></div>
         </div>
-        <div class="stat" id="message">Sammle 8 Rubine, besiege Bokoblins mit dem Bogen und erreiche den Tempel!</div>
+        <div class="stat" id="message">Sammle 8 Rubine, finde das Schwert und erreiche den Tempel!</div>
       </div>
 
-      <canvas id="game" width="640" height="416" aria-label="Mini Zelda Spiel"></canvas>
+      <canvas id="game" width="960" height="600" aria-label="Mini Zelda Spiel"></canvas>
       <p class="help">
         Steuerung: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> oder Pfeiltasten bewegen,
-        <kbd>Leertaste</kbd> Bogen schießen, <kbd>R</kbd> Neustart.
+        <kbd>Leertaste</kbd> Bogen schießen, <kbd>F</kbd> Schwert, <kbd>R</kbd> Neustart.
       </p>
     </div>
 
@@ -130,6 +130,7 @@
       const MAP_W = 20;
       const MAP_H = 13;
       const MAX_RUPEES = 8;
+      const SWORD_POS = { x: TILE * 17.5, y: TILE * 3.5 };
 
       const COLORS = {
         grass: "#2f8f46",
@@ -147,6 +148,8 @@
         bokoblin: "#d87532",
         bokoblinDark: "#a04a22",
         arrow: "#d9c7a0",
+        steel: "#dbe8f3",
+        steelDark: "#8da0b3",
       };
 
       const map = [
@@ -173,6 +176,8 @@
       let invulnerableTimer = 0;
       let arrows;
       let shootCooldown = 0;
+      let swordPickup;
+      let swordSlashTimer = 0;
       let gameOver = false;
       let win = false;
 
@@ -224,6 +229,7 @@
           hp: 5,
           rupees: 0,
           size: 22,
+          hasSword: false,
         };
 
         enemies = Array.from({ length: 6 }, () => {
@@ -247,10 +253,15 @@
         invulnerableTimer = 0;
         arrows = [];
         shootCooldown = 0;
+        swordPickup = {
+          ...SWORD_POS,
+          taken: false,
+        };
+        swordSlashTimer = 0;
         gameOver = false;
         win = false;
 
-        setMessage("Sammle 8 Rubine, besiege Bokoblins mit dem Bogen und erreiche den Tempel!");
+        setMessage("Sammle 8 Rubine, finde das Schwert, besiege Bokoblins und erreiche den Tempel!");
         updateHud();
       }
 
@@ -315,6 +326,17 @@
           alive: true,
         });
         shootCooldown = 0.24;
+      }
+
+      function useSwordSlash() {
+        if (!player.hasSword || gameOver || win) return;
+        swordSlashTimer = 0.2;
+        for (const enemy of enemies) {
+          if (!enemy.alive) continue;
+          if (dist(enemy, player) < 35) {
+            enemy.alive = false;
+          }
+        }
       }
 
       function updateArrows(dt) {
@@ -408,6 +430,15 @@
         }
       }
 
+      function updateSwordPickup() {
+        if (swordPickup.taken) return;
+        if (dist(swordPickup, player) < 20) {
+          swordPickup.taken = true;
+          player.hasSword = true;
+          setMessage("Legendäres Schwert gefunden! Drücke F für Nahkampf.");
+        }
+      }
+
       function checkTempleWin() {
         if (player.rupees < MAX_RUPEES) return;
         if (enemies.some((enemy) => enemy.alive)) return;
@@ -419,58 +450,127 @@
         }
       }
 
+      const ISO = {
+        tileW: 46,
+        tileH: 23,
+        wallH: 26,
+        originX: canvas.width / 2,
+        originY: 38,
+      };
+
+      function isoProject(worldX, worldY, worldZ = 0) {
+        const tx = worldX / TILE;
+        const ty = worldY / TILE;
+        return {
+          x: (tx - ty) * (ISO.tileW / 2) + ISO.originX,
+          y: (tx + ty) * (ISO.tileH / 2) + ISO.originY - worldZ,
+        };
+      }
+
+      function drawPoly(points, color) {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        for (let i = 1; i < points.length; i++) {
+          ctx.lineTo(points[i].x, points[i].y);
+        }
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      function drawIsoDiamond(tx, ty, color) {
+        const p0 = isoProject(tx * TILE, ty * TILE, 0);
+        const p1 = isoProject((tx + 1) * TILE, ty * TILE, 0);
+        const p2 = isoProject((tx + 1) * TILE, (ty + 1) * TILE, 0);
+        const p3 = isoProject(tx * TILE, (ty + 1) * TILE, 0);
+        drawPoly([p0, p1, p2, p3], color);
+      }
+
+      function drawIsoBlock(tx, ty, topColor, sideA, sideB, height = ISO.wallH) {
+        const p0 = isoProject(tx * TILE, ty * TILE, 0);
+        const p1 = isoProject((tx + 1) * TILE, ty * TILE, 0);
+        const p2 = isoProject((tx + 1) * TILE, (ty + 1) * TILE, 0);
+        const p3 = isoProject(tx * TILE, (ty + 1) * TILE, 0);
+        const t0 = isoProject(tx * TILE, ty * TILE, height);
+        const t1 = isoProject((tx + 1) * TILE, ty * TILE, height);
+        const t2 = isoProject((tx + 1) * TILE, (ty + 1) * TILE, height);
+        const t3 = isoProject(tx * TILE, (ty + 1) * TILE, height);
+
+        drawPoly([p1, p2, t2, t1], sideA);
+        drawPoly([p2, p3, t3, t2], sideB);
+        drawPoly([t0, t1, t2, t3], topColor);
+      }
+
       function drawMap() {
-        const horizon = 68;
-        const floorGrad = ctx.createLinearGradient(0, horizon, 0, canvas.height);
-        floorGrad.addColorStop(0, "#3fa65d");
-        floorGrad.addColorStop(1, "#2f7f44");
-        ctx.fillStyle = floorGrad;
+        const sky = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        sky.addColorStop(0, "#8ad8e8");
+        sky.addColorStop(0.35, "#9fdfbf");
+        sky.addColorStop(1, "#5da069");
+        ctx.fillStyle = sky;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         for (let y = 0; y < MAP_H; y++) {
           for (let x = 0; x < MAP_W; x++) {
             const cell = map[y][x];
-            const px = x * TILE;
-            const py = y * TILE;
+            if (cell === "#") continue;
+            const tileColor = (x + y) % 2 === 0 ? COLORS.grass : COLORS.grassAlt;
+            drawIsoDiamond(x, y, tileColor);
+          }
+        }
 
+        for (let y = 0; y < MAP_H; y++) {
+          for (let x = 0; x < MAP_W; x++) {
+            const cell = map[y][x];
             if (cell === "#") {
-              ctx.fillStyle = COLORS.wall;
-              ctx.fillRect(px, py + 6, TILE, TILE - 6);
-              ctx.fillStyle = "#1b252f";
-              ctx.beginPath();
-              ctx.moveTo(px + TILE, py + 6);
-              ctx.lineTo(px + TILE + 7, py + 11);
-              ctx.lineTo(px + TILE + 7, py + TILE + 5);
-              ctx.lineTo(px + TILE, py + TILE);
-              ctx.closePath();
-              ctx.fill();
-              ctx.fillStyle = COLORS.wallTop;
-              ctx.fillRect(px, py, TILE, 8);
+              drawIsoBlock(x, y, COLORS.wallTop, "#2d3947", "#212a34", ISO.wallH);
             } else if (cell === "T") {
-              const g = ctx.createLinearGradient(px, py, px, py + TILE);
-              g.addColorStop(0, "#f2ce77");
-              g.addColorStop(1, COLORS.temple);
-              ctx.fillStyle = g;
-              ctx.fillRect(px, py + 3, TILE, TILE - 3);
+              drawIsoBlock(x, y, "#f2ce77", "#c49a47", "#9f7c36", ISO.wallH + 8);
+              const doorPos = isoProject((x + 0.52) * TILE, (y + 0.72) * TILE, 8);
               ctx.fillStyle = COLORS.templeDoor;
-              ctx.fillRect(px + 10, py + 10, 12, 18);
-            } else {
-              ctx.fillStyle = (x + y) % 2 === 0 ? COLORS.grass : COLORS.grassAlt;
-              ctx.fillRect(px, py, TILE, TILE);
+              ctx.fillRect(doorPos.x - 5, doorPos.y - 6, 10, 12);
             }
           }
         }
       }
 
+      function drawSwordPickup() {
+        if (swordPickup.taken) return;
+
+        const base = isoProject(swordPickup.x, swordPickup.y, 0);
+        ctx.fillStyle = COLORS.shadow;
+        ctx.beginPath();
+        ctx.ellipse(base.x, base.y + 4, 9, 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.save();
+        ctx.translate(base.x, base.y + 1);
+        ctx.rotate(-0.45);
+        ctx.fillStyle = COLORS.steelDark;
+        ctx.fillRect(-1.2, -18, 2.4, 21);
+        ctx.fillStyle = COLORS.steel;
+        ctx.beginPath();
+        ctx.moveTo(0, -24);
+        ctx.lineTo(4, -18);
+        ctx.lineTo(-4, -18);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#cc9a52";
+        ctx.fillRect(-5, 2, 10, 3);
+        ctx.fillStyle = "#6a4724";
+        ctx.fillRect(-1.3, 4, 2.6, 6);
+        ctx.restore();
+      }
+
       function drawRupees() {
         for (const rupee of rupees) {
           if (rupee.taken) continue;
+          const p = isoProject(rupee.x, rupee.y, 9);
           ctx.fillStyle = COLORS.rupee;
           ctx.beginPath();
-          ctx.moveTo(rupee.x, rupee.y - 8);
-          ctx.lineTo(rupee.x + 6, rupee.y);
-          ctx.lineTo(rupee.x, rupee.y + 8);
-          ctx.lineTo(rupee.x - 6, rupee.y);
+          ctx.moveTo(p.x, p.y - 8);
+          ctx.lineTo(p.x + 6, p.y);
+          ctx.lineTo(p.x, p.y + 8);
+          ctx.lineTo(p.x - 6, p.y);
           ctx.closePath();
           ctx.fill();
         }
@@ -479,46 +579,53 @@
       function drawEnemies() {
         for (const enemy of enemies) {
           if (!enemy.alive) continue;
+          const p = isoProject(enemy.x, enemy.y, 0);
 
           ctx.fillStyle = COLORS.shadow;
           ctx.beginPath();
-          ctx.ellipse(enemy.x, enemy.y + 9, 11, 6, 0, 0, Math.PI * 2);
+          ctx.ellipse(p.x, p.y + 3, 10, 5, 0, 0, Math.PI * 2);
           ctx.fill();
 
           ctx.fillStyle = COLORS.bokoblin;
           ctx.beginPath();
-          ctx.ellipse(enemy.x, enemy.y + 1, enemy.size / 2, enemy.size / 2.2, 0, 0, Math.PI * 2);
+          ctx.ellipse(p.x, p.y - 6, 10, 11, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = "#e89f61";
+          ctx.beginPath();
+          ctx.ellipse(p.x - 3, p.y - 9, 4, 3, 0, 0, Math.PI * 2);
           ctx.fill();
 
           ctx.fillStyle = COLORS.bokoblinDark;
           ctx.beginPath();
-          ctx.moveTo(enemy.x - 9, enemy.y - 3);
-          ctx.lineTo(enemy.x - 15, enemy.y - 10);
-          ctx.lineTo(enemy.x - 5, enemy.y - 8);
+          ctx.moveTo(p.x - 8, p.y - 9);
+          ctx.lineTo(p.x - 14, p.y - 16);
+          ctx.lineTo(p.x - 5, p.y - 13);
           ctx.closePath();
           ctx.fill();
           ctx.beginPath();
-          ctx.moveTo(enemy.x + 9, enemy.y - 3);
-          ctx.lineTo(enemy.x + 15, enemy.y - 10);
-          ctx.lineTo(enemy.x + 5, enemy.y - 8);
+          ctx.moveTo(p.x + 8, p.y - 9);
+          ctx.lineTo(p.x + 14, p.y - 16);
+          ctx.lineTo(p.x + 5, p.y - 13);
           ctx.closePath();
           ctx.fill();
 
           ctx.fillStyle = "#fff";
-          ctx.fillRect(enemy.x - 5, enemy.y - 2, 3, 3);
-          ctx.fillRect(enemy.x + 2, enemy.y - 2, 3, 3);
+          ctx.fillRect(p.x - 4.8, p.y - 9, 3, 3);
+          ctx.fillRect(p.x + 1.8, p.y - 9, 3, 3);
           ctx.fillStyle = "#2d8de0";
-          ctx.fillRect(enemy.x - 4, enemy.y - 1, 1, 1);
-          ctx.fillRect(enemy.x + 3, enemy.y - 1, 1, 1);
+          ctx.fillRect(p.x - 3.8, p.y - 8, 1, 1);
+          ctx.fillRect(p.x + 2.8, p.y - 8, 1, 1);
         }
       }
 
       function drawArrows() {
         for (const arrow of arrows) {
           const angle = Math.atan2(arrow.dy, arrow.dx);
+          const p = isoProject(arrow.x, arrow.y, 8);
 
           ctx.save();
-          ctx.translate(arrow.x, arrow.y);
+          ctx.translate(p.x, p.y);
           ctx.rotate(angle);
 
           ctx.fillStyle = COLORS.arrow;
@@ -544,18 +651,19 @@
       function drawPlayer() {
         const flicker = invulnerableTimer > 0 && Math.floor(invulnerableTimer * 20) % 2 === 0;
         if (!flicker) {
+          const p = isoProject(player.x, player.y, 0);
           ctx.fillStyle = COLORS.shadow;
           ctx.beginPath();
-          ctx.ellipse(player.x, player.y + 10, 12, 6, 0, 0, Math.PI * 2);
+          ctx.ellipse(p.x, p.y + 3, 11, 5, 0, 0, Math.PI * 2);
           ctx.fill();
 
           ctx.fillStyle = COLORS.link;
           ctx.beginPath();
-          ctx.ellipse(player.x, player.y + 1, 10, 8, 0, 0, Math.PI * 2);
+          ctx.ellipse(p.x, p.y - 7, 10, 8, 0, 0, Math.PI * 2);
           ctx.fill();
           ctx.fillStyle = COLORS.linkHat;
           ctx.beginPath();
-          ctx.ellipse(player.x, player.y - 9, 9, 6, 0, 0, Math.PI * 2);
+          ctx.ellipse(p.x, p.y - 16, 9, 6, 0, 0, Math.PI * 2);
           ctx.fill();
 
           const bowAngle =
@@ -567,7 +675,7 @@
                   ? Math.PI
                   : 0;
           ctx.save();
-          ctx.translate(player.x, player.y);
+          ctx.translate(p.x, p.y - 7);
           ctx.rotate(bowAngle);
           ctx.strokeStyle = "#8e5f2a";
           ctx.lineWidth = 2;
@@ -580,6 +688,33 @@
           ctx.lineTo(9, 5.6);
           ctx.stroke();
           ctx.restore();
+
+          if (player.hasSword) {
+            const dirAngle =
+              player.dir === "up"
+                ? -Math.PI / 2
+                : player.dir === "down"
+                  ? Math.PI / 2
+                  : player.dir === "left"
+                    ? Math.PI
+                    : 0;
+            const slashAngle = swordSlashTimer > 0 ? Math.sin(swordSlashTimer * 35) * 0.8 : 0;
+            ctx.save();
+            ctx.translate(p.x, p.y - 7);
+            ctx.rotate(dirAngle + slashAngle);
+            ctx.fillStyle = COLORS.steelDark;
+            ctx.fillRect(6, -1.2, 12, 2.4);
+            ctx.fillStyle = COLORS.steel;
+            ctx.beginPath();
+            ctx.moveTo(18, 0);
+            ctx.lineTo(22, -2.4);
+            ctx.lineTo(22, 2.4);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = "#cc9a52";
+            ctx.fillRect(4, -2.5, 2.8, 5);
+            ctx.restore();
+          }
         }
       }
 
@@ -603,11 +738,13 @@
 
         if (invulnerableTimer > 0) invulnerableTimer -= dt;
         if (shootCooldown > 0) shootCooldown -= dt;
+        if (swordSlashTimer > 0) swordSlashTimer -= dt;
 
         updatePlayer(dt);
         updateArrows(dt);
         updateEnemies(dt);
         updateRupees();
+        updateSwordPickup();
         if (player.rupees === MAX_RUPEES && enemies.every((enemy) => !enemy.alive)) {
           setMessage("Alle Bokoblins besiegt! Betritt jetzt den Tempel für den Sieg.");
         }
@@ -618,6 +755,7 @@
       function render() {
         drawMap();
         drawRupees();
+        drawSwordPickup();
         drawEnemies();
         drawArrows();
         drawPlayer();
@@ -638,7 +776,7 @@
       window.addEventListener("keydown", (event) => {
         const key = event.key.toLowerCase();
 
-        if (["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "r"].includes(key)) {
+        if (["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "f", "r"].includes(key)) {
           event.preventDefault();
         }
 
@@ -649,6 +787,11 @@
 
         if (key === "r") {
           resetGame();
+          return;
+        }
+
+        if (key === "f") {
+          useSwordSlash();
           return;
         }
 
