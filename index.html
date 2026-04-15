@@ -123,7 +123,7 @@
       </div>
       <p class="help">
         Steuerung: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> oder Pfeiltasten bewegen,
-        <kbd>Leertaste</kbd> Bogen schießen, <kbd>F</kbd> Schwert, <kbd>R</kbd> Neustart.
+        <kbd>Leertaste</kbd> Bogen schießen, <kbd>F</kbd> Masterschwert ziehen/angreifen, <kbd>R</kbd> Neustart.
       </p>
     </div>
 
@@ -151,8 +151,12 @@
         temple: "#d5b35f",
         templeDoor: "#684f27",
         rupee: "#6bf8df",
-        link: "#8ddf67",
-        linkHat: "#35af4f",
+        link: "#f2d7b0",
+        linkHair: "#9b6730",
+        linkTunic: "#2e80c9",
+        linkHat: "#2c7bc0",
+        linkPants: "#4a5a82",
+        linkSleeve: "#ead7be",
         enemy: "#cc5757",
         sword: "#f2f2f2",
         shadow: "rgba(0,0,0,0.28)",
@@ -189,6 +193,7 @@
       let shootCooldown = 0;
       let swordPickup;
       let swordSlashTimer = 0;
+      let swordDrawn = false;
       let gameOver = false;
       let win = false;
 
@@ -269,6 +274,7 @@
           taken: false,
         };
         swordSlashTimer = 0;
+        swordDrawn = false;
         gameOver = false;
         win = false;
 
@@ -340,7 +346,7 @@
       }
 
       function useSwordSlash() {
-        if (!player.hasSword || gameOver || win) return;
+        if (!player.hasSword || !swordDrawn || gameOver || win) return;
         swordSlashTimer = 0.2;
         for (const enemy of enemies) {
           if (!enemy.alive) continue;
@@ -348,6 +354,16 @@
             enemy.alive = false;
           }
         }
+      }
+
+      function toggleSwordMode() {
+        if (!player.hasSword || gameOver || win) return;
+        if (!swordDrawn) {
+          swordDrawn = true;
+          setMessage("Masterschwert gezogen! Drücke F erneut für den Schlag.");
+          return;
+        }
+        useSwordSlash();
       }
 
       function updateArrows(dt) {
@@ -446,7 +462,7 @@
         if (dist(swordPickup, player) < 20) {
           swordPickup.taken = true;
           player.hasSword = true;
-          setMessage("Legendäres Schwert gefunden! Drücke F für Nahkampf.");
+          setMessage("Masterschwert gefunden! F zieht es, F erneut schlägt zu.");
         }
       }
 
@@ -525,19 +541,40 @@
         ctx.translate(x, y + 1);
         ctx.rotate(-0.35);
 
-        ctx.fillStyle = COLORS.steelDark;
-        ctx.fillRect(-1.3, -18, 2.6, 22);
-        ctx.fillStyle = COLORS.steel;
+        const bladeGrad = ctx.createLinearGradient(-2, -24, 2, 6);
+        bladeGrad.addColorStop(0, "#eef6ff");
+        bladeGrad.addColorStop(1, "#bfd0e0");
+        ctx.fillStyle = bladeGrad;
         ctx.beginPath();
-        ctx.moveTo(0, -24);
-        ctx.lineTo(4, -17);
-        ctx.lineTo(-4, -17);
+        ctx.moveTo(0, -25);
+        ctx.lineTo(3.5, -17);
+        ctx.lineTo(2.4, 6);
+        ctx.lineTo(-2.4, 6);
+        ctx.lineTo(-3.5, -17);
         ctx.closePath();
         ctx.fill();
-        ctx.fillStyle = "#c48b39";
-        ctx.fillRect(-6, 2, 12, 3);
-        ctx.fillStyle = "#6a4724";
-        ctx.fillRect(-1.4, 4, 2.8, 7);
+        ctx.fillStyle = "#6982d5";
+        ctx.beginPath();
+        ctx.moveTo(-8, 0);
+        ctx.lineTo(-3.2, -3.4);
+        ctx.lineTo(3.2, -3.4);
+        ctx.lineTo(8, 0);
+        ctx.lineTo(3.2, 3.4);
+        ctx.lineTo(-3.2, 3.4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#4359a7";
+        ctx.fillRect(-2.1, 3.2, 4.2, 8);
+        ctx.fillStyle = "#8aa0e4";
+        ctx.fillRect(-2.1, -10, 4.2, 13);
+        ctx.fillStyle = "#f7dc86";
+        ctx.beginPath();
+        ctx.moveTo(0, -2.6);
+        ctx.lineTo(1.2, -1.2);
+        ctx.lineTo(0, 0.4);
+        ctx.lineTo(-1.2, -1.2);
+        ctx.closePath();
+        ctx.fill();
         ctx.restore();
       }
 
@@ -647,39 +684,47 @@
           ctx.ellipse(player.x, player.y + 10 * depthScale, 12 * depthScale, 6 * depthScale, 0, 0, Math.PI * 2);
           ctx.fill();
 
-          ctx.fillStyle = COLORS.link;
+          ctx.fillStyle = COLORS.linkPants;
+          ctx.beginPath();
+          ctx.ellipse(player.x, player.y + 5 * depthScale, 8 * depthScale, 6 * depthScale, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = COLORS.linkTunic;
           ctx.beginPath();
           ctx.ellipse(player.x, player.y + depthScale, 10 * depthScale, 8 * depthScale, 0, 0, Math.PI * 2);
           ctx.fill();
+          ctx.fillStyle = COLORS.linkSleeve;
+          ctx.beginPath();
+          ctx.ellipse(player.x - 7 * depthScale, player.y + 2, 3.2 * depthScale, 2.4 * depthScale, -0.3, 0, Math.PI * 2);
+          ctx.ellipse(player.x + 7 * depthScale, player.y + 2, 3.2 * depthScale, 2.4 * depthScale, 0.3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = COLORS.link;
+          ctx.beginPath();
+          ctx.ellipse(player.x, player.y - 5 * depthScale, 6 * depthScale, 5.5 * depthScale, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = COLORS.linkHair;
+          ctx.beginPath();
+          ctx.ellipse(player.x - 5 * depthScale, player.y - 6 * depthScale, 3 * depthScale, 3 * depthScale, 0, 0, Math.PI * 2);
+          ctx.ellipse(player.x + 5 * depthScale, player.y - 6 * depthScale, 3 * depthScale, 3 * depthScale, 0, 0, Math.PI * 2);
+          ctx.fill();
           ctx.fillStyle = COLORS.linkHat;
           ctx.beginPath();
-          ctx.ellipse(player.x, player.y - 9 * depthScale, 9 * depthScale, 6 * depthScale, 0, 0, Math.PI * 2);
+          ctx.ellipse(player.x, player.y - 10 * depthScale, 9 * depthScale, 5.6 * depthScale, 0, 0, Math.PI * 2);
           ctx.fill();
+          ctx.fillStyle = "#cde3ff";
+          ctx.fillRect(player.x - 2.5 * depthScale, player.y - 6.8 * depthScale, 1.2 * depthScale, 1.2 * depthScale);
+          ctx.fillRect(player.x + 1.4 * depthScale, player.y - 6.8 * depthScale, 1.2 * depthScale, 1.2 * depthScale);
 
-          const bowAngle =
-            player.dir === "up"
-              ? -Math.PI / 2
-              : player.dir === "down"
-                ? Math.PI / 2
-                : player.dir === "left"
-                  ? Math.PI
-                  : 0;
-          ctx.save();
-          ctx.translate(player.x, player.y);
-          ctx.rotate(bowAngle);
-          ctx.strokeStyle = "#8e5f2a";
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(7, 0, 6, -1.25, 1.25);
-          ctx.stroke();
-          ctx.strokeStyle = "#d6c8a7";
-          ctx.beginPath();
-          ctx.moveTo(9, -5.6);
-          ctx.lineTo(9, 5.6);
-          ctx.stroke();
-          ctx.restore();
+          if (swordDrawn) {
+            drawBowOnBack(depthScale);
+          } else {
+            drawBowInHand(depthScale);
+          }
 
-          if (player.hasSword) {
+          if (player.hasSword && !swordDrawn) {
+            drawSwordOnBack(depthScale);
+          }
+
+          if (player.hasSword && swordDrawn) {
             const dirAngle =
               player.dir === "up"
                 ? -Math.PI / 2
@@ -692,20 +737,90 @@
             ctx.save();
             ctx.translate(player.x, player.y);
             ctx.rotate(dirAngle + slashAngle);
-            ctx.fillStyle = COLORS.steelDark;
-            ctx.fillRect(6, -1.2, 12, 2.4);
-            ctx.fillStyle = COLORS.steel;
+            const bladeGrad = ctx.createLinearGradient(6, -2.2, 21, 2.2);
+            bladeGrad.addColorStop(0, "#ecf5ff");
+            bladeGrad.addColorStop(1, "#b5c8dd");
+            ctx.fillStyle = bladeGrad;
             ctx.beginPath();
-            ctx.moveTo(18, 0);
-            ctx.lineTo(22, -2.4);
-            ctx.lineTo(22, 2.4);
+            ctx.moveTo(6, -2.1);
+            ctx.lineTo(18.6, -2.1);
+            ctx.lineTo(22, 0);
+            ctx.lineTo(18.6, 2.1);
+            ctx.lineTo(6, 2.1);
             ctx.closePath();
             ctx.fill();
-            ctx.fillStyle = "#cc9a52";
-            ctx.fillRect(4, -2.5, 2.8, 5);
+            ctx.fillStyle = "#7a91d6";
+            ctx.beginPath();
+            ctx.moveTo(4.7, -4.2);
+            ctx.lineTo(7.8, -2.2);
+            ctx.lineTo(7.8, 2.2);
+            ctx.lineTo(4.7, 4.2);
+            ctx.lineTo(2.7, 2.2);
+            ctx.lineTo(2.7, -2.2);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = "#4760b4";
+            ctx.fillRect(1, -1.2, 2, 2.4);
+            ctx.fillStyle = "#f7dc86";
+            ctx.beginPath();
+            ctx.moveTo(6.2, 0);
+            ctx.lineTo(7, -0.8);
+            ctx.lineTo(7.8, 0);
+            ctx.lineTo(7, 0.8);
+            ctx.closePath();
+            ctx.fill();
             ctx.restore();
           }
         }
+      }
+
+      function drawBowInHand(depthScale) {
+        const bowAngle =
+          player.dir === "up" ? -Math.PI / 2 : player.dir === "down" ? Math.PI / 2 : player.dir === "left" ? Math.PI : 0;
+        ctx.save();
+        ctx.translate(player.x, player.y);
+        ctx.rotate(bowAngle);
+        ctx.strokeStyle = "#8e5f2a";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(7, 0, 6, -1.25, 1.25);
+        ctx.stroke();
+        ctx.strokeStyle = "#d6c8a7";
+        ctx.beginPath();
+        ctx.moveTo(9, -5.6);
+        ctx.lineTo(9, 5.6);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function drawBowOnBack(depthScale) {
+        ctx.save();
+        ctx.translate(player.x - 2 * depthScale, player.y - 1 * depthScale);
+        ctx.rotate(-0.8);
+        ctx.strokeStyle = "#8e5f2a";
+        ctx.lineWidth = 1.7;
+        ctx.beginPath();
+        ctx.arc(0, 0, 7 * depthScale, -1.25, 1.25);
+        ctx.stroke();
+        ctx.strokeStyle = "#d6c8a7";
+        ctx.beginPath();
+        ctx.moveTo(2 * depthScale, -6 * depthScale);
+        ctx.lineTo(2 * depthScale, 6 * depthScale);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function drawSwordOnBack(depthScale) {
+        ctx.save();
+        ctx.translate(player.x + 5 * depthScale, player.y - 2 * depthScale);
+        ctx.rotate(0.65);
+        ctx.fillStyle = "#d6e5f3";
+        ctx.fillRect(-1.3 * depthScale, -10 * depthScale, 2.6 * depthScale, 11 * depthScale);
+        ctx.fillStyle = "#6982d5";
+        ctx.fillRect(-3.6 * depthScale, 0.2 * depthScale, 7.2 * depthScale, 2.2 * depthScale);
+        ctx.fillStyle = "#4760b4";
+        ctx.fillRect(-1.2 * depthScale, 2.4 * depthScale, 2.4 * depthScale, 4.8 * depthScale);
+        ctx.restore();
       }
 
       function drawOverlay() {
@@ -781,7 +896,7 @@
         }
 
         if (key === "f") {
-          useSwordSlash();
+          toggleSwordMode();
           return;
         }
 
