@@ -72,7 +72,7 @@
         height: auto;
         border-radius: 12px;
         border: 2px solid var(--panel-border);
-        background: #122536;
+        background: #0f1d2a;
         image-rendering: pixelated;
         box-shadow: 0 22px 38px rgba(0, 0, 0, 0.42), 0 10px 14px rgba(0, 0, 0, 0.28);
         transform: none;
@@ -146,15 +146,15 @@
       const SAFE_SPAWN_ATTEMPTS = 800;
 
       const COLORS = {
-        grass: "#2f8f46",
-        grassAlt: "#338b48",
+        grass: "#1f3f54",
+        grassAlt: "#244a62",
         wall: "#25303c",
         wallTop: "#3e4f62",
         temple: "#d5b35f",
         templeDoor: "#684f27",
         shop: "#7b4db5",
         shopDoor: "#2c1744",
-        rupee: "#6bf8df",
+        rupee: "#baff8a",
         link: "#f2d7b0",
         linkHair: "#9b6730",
         linkTunic: "#2e80c9",
@@ -1101,14 +1101,46 @@
           const depthScale = 0.92 + (rupee.y / WORLD_H) * 0.22;
           const halfW = 6 * depthScale;
           const halfH = 8 * depthScale;
+
+          // Oberes und unteres Ende schwarz
+          ctx.beginPath();
+          ctx.moveTo(rupee.x, rupee.y - halfH);
+          ctx.lineTo(rupee.x + halfW, rupee.y);
+          ctx.lineTo(rupee.x, rupee.y - halfH * 0.36);
+          ctx.lineTo(rupee.x - halfW, rupee.y);
+          ctx.closePath();
+          ctx.fillStyle = "#000000";
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.moveTo(rupee.x, rupee.y + halfH);
+          ctx.lineTo(rupee.x + halfW, rupee.y);
+          ctx.lineTo(rupee.x, rupee.y + halfH * 0.36);
+          ctx.lineTo(rupee.x - halfW, rupee.y);
+          ctx.closePath();
+          ctx.fillStyle = "#000000";
+          ctx.fill();
+
+          // Mittlerer Teil in sehr hellem Grün
+          ctx.beginPath();
+          ctx.moveTo(rupee.x, rupee.y - halfH * 0.42);
+          ctx.lineTo(rupee.x + halfW * 0.82, rupee.y);
+          ctx.lineTo(rupee.x, rupee.y + halfH * 0.42);
+          ctx.lineTo(rupee.x - halfW * 0.82, rupee.y);
+          ctx.closePath();
           ctx.fillStyle = COLORS.rupee;
+          ctx.fill();
+
+          // dezente Kante für bessere Sichtbarkeit
+          ctx.strokeStyle = "rgba(0, 0, 0, 0.5)";
+          ctx.lineWidth = Math.max(1, depthScale * 0.8);
           ctx.beginPath();
           ctx.moveTo(rupee.x, rupee.y - halfH);
           ctx.lineTo(rupee.x + halfW, rupee.y);
           ctx.lineTo(rupee.x, rupee.y + halfH);
           ctx.lineTo(rupee.x - halfW, rupee.y);
           ctx.closePath();
-          ctx.fill();
+          ctx.stroke();
         }
       }
 
