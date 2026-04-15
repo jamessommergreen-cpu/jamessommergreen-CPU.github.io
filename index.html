@@ -34,6 +34,7 @@
         width: min(96vw, 920px);
         display: grid;
         gap: 0.8rem;
+        perspective: 1100px;
       }
 
       .hud {
@@ -74,6 +75,13 @@
         border: 2px solid var(--panel-border);
         background: #122536;
         image-rendering: pixelated;
+        box-shadow: 0 22px 38px rgba(0, 0, 0, 0.42), 0 10px 14px rgba(0, 0, 0, 0.28);
+        transform: rotateX(11deg) rotateZ(-1.5deg);
+        transform-origin: center top;
+      }
+
+      .canvas-wrap {
+        padding-top: 0.4rem;
       }
 
       .help {
@@ -110,7 +118,9 @@
         <div class="stat" id="message">Sammle 8 Rubine, besiege Bokoblins mit dem Bogen und erreiche den Tempel!</div>
       </div>
 
-      <canvas id="game" width="640" height="416" aria-label="Mini Zelda Spiel"></canvas>
+      <div class="canvas-wrap">
+        <canvas id="game" width="640" height="416" aria-label="Mini Zelda Spiel"></canvas>
+      </div>
       <p class="help">
         Steuerung: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> oder Pfeiltasten bewegen,
         <kbd>Leertaste</kbd> Bogen schießen, <kbd>F</kbd> Schwert, <kbd>R</kbd> Neustart.
@@ -131,6 +141,7 @@
       const MAP_H = 13;
       const MAX_RUPEES = 8;
       const SWORD_POS = { x: TILE * 17.5, y: TILE * 3.5 };
+      const WORLD_H = MAP_H * TILE;
 
       const COLORS = {
         grass: "#2f8f46",
@@ -451,10 +462,10 @@
       }
 
       function drawMap() {
-        const horizon = 68;
+        const horizon = 42;
         const floorGrad = ctx.createLinearGradient(0, horizon, 0, canvas.height);
-        floorGrad.addColorStop(0, "#3fa65d");
-        floorGrad.addColorStop(1, "#2f7f44");
+        floorGrad.addColorStop(0, "#5ab879");
+        floorGrad.addColorStop(1, "#2a6f3e");
         ctx.fillStyle = floorGrad;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -533,12 +544,15 @@
       function drawRupees() {
         for (const rupee of rupees) {
           if (rupee.taken) continue;
+          const depthScale = 0.92 + (rupee.y / WORLD_H) * 0.22;
+          const halfW = 6 * depthScale;
+          const halfH = 8 * depthScale;
           ctx.fillStyle = COLORS.rupee;
           ctx.beginPath();
-          ctx.moveTo(rupee.x, rupee.y - 8);
-          ctx.lineTo(rupee.x + 6, rupee.y);
-          ctx.lineTo(rupee.x, rupee.y + 8);
-          ctx.lineTo(rupee.x - 6, rupee.y);
+          ctx.moveTo(rupee.x, rupee.y - halfH);
+          ctx.lineTo(rupee.x + halfW, rupee.y);
+          ctx.lineTo(rupee.x, rupee.y + halfH);
+          ctx.lineTo(rupee.x - halfW, rupee.y);
           ctx.closePath();
           ctx.fill();
         }
@@ -547,15 +561,18 @@
       function drawEnemies() {
         for (const enemy of enemies) {
           if (!enemy.alive) continue;
+          const depthScale = 0.9 + (enemy.y / WORLD_H) * 0.25;
+          const bodyW = (enemy.size / 2) * depthScale;
+          const bodyH = (enemy.size / 2.2) * depthScale;
 
           ctx.fillStyle = COLORS.shadow;
           ctx.beginPath();
-          ctx.ellipse(enemy.x, enemy.y + 9, 11, 6, 0, 0, Math.PI * 2);
+          ctx.ellipse(enemy.x, enemy.y + 9 * depthScale, 11 * depthScale, 6 * depthScale, 0, 0, Math.PI * 2);
           ctx.fill();
 
           ctx.fillStyle = COLORS.bokoblin;
           ctx.beginPath();
-          ctx.ellipse(enemy.x, enemy.y + 1, enemy.size / 2, enemy.size / 2.2, 0, 0, Math.PI * 2);
+          ctx.ellipse(enemy.x, enemy.y + depthScale, bodyW, bodyH, 0, 0, Math.PI * 2);
           ctx.fill();
 
           ctx.fillStyle = "#e89f61";
@@ -595,25 +612,26 @@
       function drawArrows() {
         for (const arrow of arrows) {
           const angle = Math.atan2(arrow.dy, arrow.dx);
+          const depthScale = 0.9 + (arrow.y / WORLD_H) * 0.24;
 
           ctx.save();
           ctx.translate(arrow.x, arrow.y);
           ctx.rotate(angle);
 
           ctx.fillStyle = COLORS.arrow;
-          ctx.fillRect(-8, -1.5, 16, 3);
+          ctx.fillRect(-8 * depthScale, -1.5 * depthScale, 16 * depthScale, 3 * depthScale);
           ctx.fillStyle = "#efefef";
           ctx.beginPath();
-          ctx.moveTo(8, 0);
-          ctx.lineTo(13, -3);
-          ctx.lineTo(13, 3);
+          ctx.moveTo(8 * depthScale, 0);
+          ctx.lineTo(13 * depthScale, -3 * depthScale);
+          ctx.lineTo(13 * depthScale, 3 * depthScale);
           ctx.closePath();
           ctx.fill();
           ctx.fillStyle = "#7b5b2c";
           ctx.beginPath();
-          ctx.moveTo(-8, 0);
-          ctx.lineTo(-12, -3);
-          ctx.lineTo(-12, 3);
+          ctx.moveTo(-8 * depthScale, 0);
+          ctx.lineTo(-12 * depthScale, -3 * depthScale);
+          ctx.lineTo(-12 * depthScale, 3 * depthScale);
           ctx.closePath();
           ctx.fill();
           ctx.restore();
@@ -623,18 +641,19 @@
       function drawPlayer() {
         const flicker = invulnerableTimer > 0 && Math.floor(invulnerableTimer * 20) % 2 === 0;
         if (!flicker) {
+          const depthScale = 0.91 + (player.y / WORLD_H) * 0.24;
           ctx.fillStyle = COLORS.shadow;
           ctx.beginPath();
-          ctx.ellipse(player.x, player.y + 10, 12, 6, 0, 0, Math.PI * 2);
+          ctx.ellipse(player.x, player.y + 10 * depthScale, 12 * depthScale, 6 * depthScale, 0, 0, Math.PI * 2);
           ctx.fill();
 
           ctx.fillStyle = COLORS.link;
           ctx.beginPath();
-          ctx.ellipse(player.x, player.y + 1, 10, 8, 0, 0, Math.PI * 2);
+          ctx.ellipse(player.x, player.y + depthScale, 10 * depthScale, 8 * depthScale, 0, 0, Math.PI * 2);
           ctx.fill();
           ctx.fillStyle = COLORS.linkHat;
           ctx.beginPath();
-          ctx.ellipse(player.x, player.y - 9, 9, 6, 0, 0, Math.PI * 2);
+          ctx.ellipse(player.x, player.y - 9 * depthScale, 9 * depthScale, 6 * depthScale, 0, 0, Math.PI * 2);
           ctx.fill();
 
           const bowAngle =
