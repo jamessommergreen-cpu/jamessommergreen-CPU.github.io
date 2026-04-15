@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mini Zelda – Browser-Spiel</title>
+    <title>Mini Zelda 3D-Look – Browser-Spiel</title>
     <style>
       :root {
         --bg: #0b1622;
@@ -107,13 +107,13 @@
           <div class="stat">💎 Rubine: <strong id="rupees">0</strong> / 8</div>
           <div class="stat">👾 Gegner: <strong id="enemies">0</strong></div>
         </div>
-        <div class="stat" id="message">Sammle 8 Rubine und erreiche den Tempel!</div>
+        <div class="stat" id="message">Sammle 8 Rubine, besiege Bokoblins mit dem Bogen und erreiche den Tempel!</div>
       </div>
 
       <canvas id="game" width="640" height="416" aria-label="Mini Zelda Spiel"></canvas>
       <p class="help">
         Steuerung: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> oder Pfeiltasten bewegen,
-        <kbd>Leertaste</kbd> Schwertangriff, <kbd>R</kbd> Neustart.
+        <kbd>Leertaste</kbd> Bogen schießen, <kbd>R</kbd> Neustart.
       </p>
     </div>
 
@@ -143,6 +143,10 @@
         linkHat: "#35af4f",
         enemy: "#cc5757",
         sword: "#f2f2f2",
+        shadow: "rgba(0,0,0,0.28)",
+        bokoblin: "#d87532",
+        bokoblinDark: "#a04a22",
+        arrow: "#d9c7a0",
       };
 
       const map = [
@@ -167,7 +171,8 @@
       let enemies;
       let rupees;
       let invulnerableTimer = 0;
-      let attackTimer = 0;
+      let arrows;
+      let shootCooldown = 0;
       let gameOver = false;
       let win = false;
 
@@ -210,14 +215,6 @@
         return Math.hypot(a.x - b.x, a.y - b.y);
       }
 
-      function rectCircleCollides(rect, circle) {
-        const nearestX = Math.max(rect.x, Math.min(circle.x, rect.x + rect.w));
-        const nearestY = Math.max(rect.y, Math.min(circle.y, rect.y + rect.h));
-        const dx = circle.x - nearestX;
-        const dy = circle.y - nearestY;
-        return dx * dx + dy * dy < circle.r * circle.r;
-      }
-
       function resetGame() {
         player = {
           x: TILE * 1.5,
@@ -248,11 +245,12 @@
         }));
 
         invulnerableTimer = 0;
-        attackTimer = 0;
+        arrows = [];
+        shootCooldown = 0;
         gameOver = false;
         win = false;
 
-        setMessage("Sammle 8 Rubine und erreiche den Tempel!");
+        setMessage("Sammle 8 Rubine, besiege Bokoblins mit dem Bogen und erreiche den Tempel!");
         updateHud();
       }
 
@@ -260,21 +258,6 @@
         heartsEl.textContent = player.hp;
         rupeesEl.textContent = player.rupees;
         enemiesEl.textContent = enemies.filter((e) => e.alive).length;
-      }
-
-      function getAttackRect() {
-        const range = 30;
-        const width = 26;
-        if (player.dir === "up") {
-          return { x: player.x - width / 2, y: player.y - player.size / 2 - range, w: width, h: range };
-        }
-        if (player.dir === "down") {
-          return { x: player.x - width / 2, y: player.y + player.size / 2, w: width, h: range };
-        }
-        if (player.dir === "left") {
-          return { x: player.x - player.size / 2 - range, y: player.y - width / 2, w: range, h: width };
-        }
-        return { x: player.x + player.size / 2, y: player.y - width / 2, w: range, h: width };
       }
 
       function updatePlayer(dt) {
@@ -313,16 +296,49 @@
         if (canMoveTo(player.x, ny, player.size)) {
           player.y = ny;
         }
+      }
 
-        if (attackTimer > 0) {
-          const attackRect = getAttackRect();
+      function shootArrow() {
+        const dirs = {
+          up: [0, -1],
+          down: [0, 1],
+          left: [-1, 0],
+          right: [1, 0],
+        };
+        const [dx, dy] = dirs[player.dir] || [0, 1];
+        arrows.push({
+          x: player.x + dx * 14,
+          y: player.y + dy * 14,
+          dx,
+          dy,
+          speed: 320,
+          alive: true,
+        });
+        shootCooldown = 0.24;
+      }
+
+      function updateArrows(dt) {
+        for (const arrow of arrows) {
+          if (!arrow.alive) continue;
+          arrow.x += arrow.dx * arrow.speed * dt;
+          arrow.y += arrow.dy * arrow.speed * dt;
+
+          if (!canMoveTo(arrow.x, arrow.y, 8)) {
+            arrow.alive = false;
+            continue;
+          }
+
           for (const enemy of enemies) {
             if (!enemy.alive) continue;
-            if (rectCircleCollides(attackRect, { x: enemy.x, y: enemy.y, r: enemy.size / 2 })) {
+            if (dist(arrow, enemy) < enemy.size * 0.55) {
               enemy.alive = false;
+              arrow.alive = false;
+              break;
             }
           }
         }
+
+        arrows = arrows.filter((a) => a.alive);
       }
 
       function updateEnemies(dt) {
@@ -386,7 +402,7 @@
             rupee.taken = true;
             player.rupees += 1;
             if (player.rupees === MAX_RUPEES) {
-              setMessage("Alle Rubine gesammelt! Jetzt zum Tempel (goldenes Feld).");
+              setMessage("Alle Rubine gesammelt! Schalte die letzten Bokoblins aus und geh zum Tempel.");
             }
           }
         }
@@ -394,6 +410,7 @@
 
       function checkTempleWin() {
         if (player.rupees < MAX_RUPEES) return;
+        if (enemies.some((enemy) => enemy.alive)) return;
         const tx = Math.floor(player.x / TILE);
         const ty = Math.floor(player.y / TILE);
         if (map[ty][tx] === "T") {
@@ -403,6 +420,13 @@
       }
 
       function drawMap() {
+        const horizon = 68;
+        const floorGrad = ctx.createLinearGradient(0, horizon, 0, canvas.height);
+        floorGrad.addColorStop(0, "#3fa65d");
+        floorGrad.addColorStop(1, "#2f7f44");
+        ctx.fillStyle = floorGrad;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
         for (let y = 0; y < MAP_H; y++) {
           for (let x = 0; x < MAP_W; x++) {
             const cell = map[y][x];
@@ -411,12 +435,23 @@
 
             if (cell === "#") {
               ctx.fillStyle = COLORS.wall;
-              ctx.fillRect(px, py, TILE, TILE);
+              ctx.fillRect(px, py + 6, TILE, TILE - 6);
+              ctx.fillStyle = "#1b252f";
+              ctx.beginPath();
+              ctx.moveTo(px + TILE, py + 6);
+              ctx.lineTo(px + TILE + 7, py + 11);
+              ctx.lineTo(px + TILE + 7, py + TILE + 5);
+              ctx.lineTo(px + TILE, py + TILE);
+              ctx.closePath();
+              ctx.fill();
               ctx.fillStyle = COLORS.wallTop;
               ctx.fillRect(px, py, TILE, 8);
             } else if (cell === "T") {
-              ctx.fillStyle = COLORS.temple;
-              ctx.fillRect(px, py, TILE, TILE);
+              const g = ctx.createLinearGradient(px, py, px, py + TILE);
+              g.addColorStop(0, "#f2ce77");
+              g.addColorStop(1, COLORS.temple);
+              ctx.fillStyle = g;
+              ctx.fillRect(px, py + 3, TILE, TILE - 3);
               ctx.fillStyle = COLORS.templeDoor;
               ctx.fillRect(px + 10, py + 10, 12, 18);
             } else {
@@ -444,30 +479,107 @@
       function drawEnemies() {
         for (const enemy of enemies) {
           if (!enemy.alive) continue;
-          ctx.fillStyle = COLORS.enemy;
+
+          ctx.fillStyle = COLORS.shadow;
           ctx.beginPath();
-          ctx.arc(enemy.x, enemy.y, enemy.size / 2, 0, Math.PI * 2);
+          ctx.ellipse(enemy.x, enemy.y + 9, 11, 6, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = COLORS.bokoblin;
+          ctx.beginPath();
+          ctx.ellipse(enemy.x, enemy.y + 1, enemy.size / 2, enemy.size / 2.2, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = COLORS.bokoblinDark;
+          ctx.beginPath();
+          ctx.moveTo(enemy.x - 9, enemy.y - 3);
+          ctx.lineTo(enemy.x - 15, enemy.y - 10);
+          ctx.lineTo(enemy.x - 5, enemy.y - 8);
+          ctx.closePath();
+          ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(enemy.x + 9, enemy.y - 3);
+          ctx.lineTo(enemy.x + 15, enemy.y - 10);
+          ctx.lineTo(enemy.x + 5, enemy.y - 8);
+          ctx.closePath();
           ctx.fill();
 
           ctx.fillStyle = "#fff";
-          ctx.fillRect(enemy.x - 6, enemy.y - 2, 3, 3);
-          ctx.fillRect(enemy.x + 3, enemy.y - 2, 3, 3);
+          ctx.fillRect(enemy.x - 5, enemy.y - 2, 3, 3);
+          ctx.fillRect(enemy.x + 2, enemy.y - 2, 3, 3);
+          ctx.fillStyle = "#2d8de0";
+          ctx.fillRect(enemy.x - 4, enemy.y - 1, 1, 1);
+          ctx.fillRect(enemy.x + 3, enemy.y - 1, 1, 1);
+        }
+      }
+
+      function drawArrows() {
+        for (const arrow of arrows) {
+          const angle = Math.atan2(arrow.dy, arrow.dx);
+
+          ctx.save();
+          ctx.translate(arrow.x, arrow.y);
+          ctx.rotate(angle);
+
+          ctx.fillStyle = COLORS.arrow;
+          ctx.fillRect(-8, -1.5, 16, 3);
+          ctx.fillStyle = "#efefef";
+          ctx.beginPath();
+          ctx.moveTo(8, 0);
+          ctx.lineTo(13, -3);
+          ctx.lineTo(13, 3);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = "#7b5b2c";
+          ctx.beginPath();
+          ctx.moveTo(-8, 0);
+          ctx.lineTo(-12, -3);
+          ctx.lineTo(-12, 3);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
         }
       }
 
       function drawPlayer() {
         const flicker = invulnerableTimer > 0 && Math.floor(invulnerableTimer * 20) % 2 === 0;
         if (!flicker) {
-          ctx.fillStyle = COLORS.link;
-          ctx.fillRect(player.x - 10, player.y - 7, 20, 16);
-          ctx.fillStyle = COLORS.linkHat;
-          ctx.fillRect(player.x - 9, player.y - 13, 18, 7);
-        }
+          ctx.fillStyle = COLORS.shadow;
+          ctx.beginPath();
+          ctx.ellipse(player.x, player.y + 10, 12, 6, 0, 0, Math.PI * 2);
+          ctx.fill();
 
-        if (attackTimer > 0) {
-          const rect = getAttackRect();
-          ctx.fillStyle = COLORS.sword;
-          ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+          ctx.fillStyle = COLORS.link;
+          ctx.beginPath();
+          ctx.ellipse(player.x, player.y + 1, 10, 8, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = COLORS.linkHat;
+          ctx.beginPath();
+          ctx.ellipse(player.x, player.y - 9, 9, 6, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          const bowAngle =
+            player.dir === "up"
+              ? -Math.PI / 2
+              : player.dir === "down"
+                ? Math.PI / 2
+                : player.dir === "left"
+                  ? Math.PI
+                  : 0;
+          ctx.save();
+          ctx.translate(player.x, player.y);
+          ctx.rotate(bowAngle);
+          ctx.strokeStyle = "#8e5f2a";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(7, 0, 6, -1.25, 1.25);
+          ctx.stroke();
+          ctx.strokeStyle = "#d6c8a7";
+          ctx.beginPath();
+          ctx.moveTo(9, -5.6);
+          ctx.lineTo(9, 5.6);
+          ctx.stroke();
+          ctx.restore();
         }
       }
 
@@ -490,11 +602,15 @@
         if (gameOver || win) return;
 
         if (invulnerableTimer > 0) invulnerableTimer -= dt;
-        if (attackTimer > 0) attackTimer -= dt;
+        if (shootCooldown > 0) shootCooldown -= dt;
 
         updatePlayer(dt);
+        updateArrows(dt);
         updateEnemies(dt);
         updateRupees();
+        if (player.rupees === MAX_RUPEES && enemies.every((enemy) => !enemy.alive)) {
+          setMessage("Alle Bokoblins besiegt! Betritt jetzt den Tempel für den Sieg.");
+        }
         checkTempleWin();
         updateHud();
       }
@@ -503,6 +619,7 @@
         drawMap();
         drawRupees();
         drawEnemies();
+        drawArrows();
         drawPlayer();
         drawOverlay();
       }
@@ -526,7 +643,7 @@
         }
 
         if (key === " ") {
-          if (!gameOver && !win) attackTimer = 0.18;
+          if (!gameOver && !win && shootCooldown <= 0) shootArrow();
           return;
         }
 
