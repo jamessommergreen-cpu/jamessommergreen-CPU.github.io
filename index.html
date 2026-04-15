@@ -111,7 +111,7 @@
         <div class="stats">
           <div class="stat">🧭 Level: <strong id="level">1</strong></div>
           <div class="stat">❤️ Leben: <strong id="hearts">5</strong></div>
-          <div class="stat">⚔️ Schaden: <strong id="damage">2</strong></div>
+          <div class="stat">⚔️ Schaden: <strong id="damage">1</strong></div>
           <div class="stat">💎 Rubine: <strong id="rupees">0</strong> / 8</div>
           <div class="stat">👾 Gegner: <strong id="enemies">0</strong></div>
         </div>
@@ -427,7 +427,7 @@
         endParticles = [];
 
         if (isShopLevel) {
-          setMessage("Shop: Wähle genau eins – links Herz (+1 Leben) oder rechts +1 Schaden.");
+          setMessage("Shop: Wähle nur eins mein bro – links Herz (+1 Leben) oder rechts +1 Schaden.");
         } else {
           setMessage(`Level ${level}: ${enemyCount} Bokoblins (5 HP, teils mit Bogen) und ${levelWallCount} Wände warten.`);
         }
@@ -524,7 +524,7 @@
       function shootArrow() {
         if (player.hasSword && swordDrawn) {
           swordDrawn = false;
-          setMessage("Link wechselt zurück zum Bogen. Das Masterschwert ist wieder auf dem Rücken.");
+          setMessage("Du hast zum Bogen züruck gewechselt. Das Masterschwert ist wieder auf dem Rücken.");
           updateHud();
         }
         const dirs = {
@@ -560,7 +560,7 @@
       function isEnemyInSwordReach(enemy) {
         const dx = enemy.x - player.x;
         const dy = enemy.y - player.y;
-        const reach = TILE * 2.5;
+        const reach = TILE * 2;
         const hitWidth = enemy.size * 0.5 + 10;
 
         if (player.dir === "up") return dy <= 0 && dy >= -reach && Math.abs(dx) <= hitWidth;
