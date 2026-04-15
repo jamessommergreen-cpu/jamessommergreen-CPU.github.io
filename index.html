@@ -3,14 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>The Legend of Zelda: Breath of the Wild</title>
+    <title>Mini Zelda – Browser-Spiel</title>
     <style>
       :root {
-        --bg: #0a1f29;
-        --bg-soft: #123647;
-        --text: #e9f3f7;
-        --accent: #57c3dd;
-        --accent-2: #ffd166;
+        --bg: #0b1622;
+        --panel: #132738;
+        --panel-border: #2c4f6b;
+        --text: #e8f1f7;
+        --accent: #f7d774;
+        --accent-2: #76d39b;
+        --danger: #ff6d6d;
       }
 
       * {
@@ -19,110 +21,529 @@
 
       body {
         margin: 0;
-        font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        background: linear-gradient(180deg, var(--bg), #081319);
-        color: var(--text);
-        line-height: 1.6;
-      }
-
-      header {
-        padding: 4rem 1.5rem 2rem;
-        text-align: center;
-      }
-
-      h1 {
-        margin: 0;
-        font-size: clamp(2rem, 5vw, 3.2rem);
-        letter-spacing: 0.04em;
-      }
-
-      .subtitle {
-        color: #b6d9e3;
-        margin-top: 0.8rem;
-      }
-
-      main {
-        max-width: 980px;
-        margin: 0 auto;
-        padding: 1.5rem;
+        min-height: 100vh;
         display: grid;
-        gap: 1.25rem;
+        place-items: center;
+        background: radial-gradient(circle at top, #1b3650, var(--bg) 45%);
+        color: var(--text);
+        font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        padding: 1rem;
       }
 
-      .card {
-        background: rgba(18, 54, 71, 0.65);
-        border: 1px solid rgba(87, 195, 221, 0.35);
-        border-radius: 16px;
-        padding: 1.2rem;
-        backdrop-filter: blur(2px);
+      .game-shell {
+        width: min(96vw, 920px);
+        display: grid;
+        gap: 0.8rem;
       }
 
-      h2 {
-        margin-top: 0;
+      .hud {
+        background: rgba(19, 39, 56, 0.92);
+        border: 1px solid var(--panel-border);
+        border-radius: 12px;
+        padding: 0.7rem 0.9rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.8rem 1.2rem;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .stats {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.8rem;
+        align-items: center;
+      }
+
+      .stat {
+        background: #0e1d2b;
+        border: 1px solid #2a475f;
+        border-radius: 999px;
+        padding: 0.3rem 0.7rem;
+        font-size: 0.95rem;
+      }
+
+      .stat strong {
         color: var(--accent);
       }
 
-      ul {
-        margin: 0;
-        padding-left: 1.1rem;
+      canvas {
+        width: 100%;
+        height: auto;
+        border-radius: 12px;
+        border: 2px solid var(--panel-border);
+        background: #122536;
+        image-rendering: pixelated;
       }
 
-      .cta {
-        display: inline-block;
-        margin-top: 0.8rem;
-        padding: 0.65rem 1rem;
-        border-radius: 999px;
-        color: #041117;
-        background: linear-gradient(120deg, var(--accent), var(--accent-2));
-        text-decoration: none;
+      .help {
+        margin: 0;
+        opacity: 0.92;
+        font-size: 0.95rem;
+      }
+
+      kbd {
+        border: 1px solid #53758f;
+        background: #0a1724;
+        border-radius: 6px;
+        padding: 0.1rem 0.35rem;
         font-weight: 700;
       }
 
-      footer {
-        text-align: center;
-        opacity: 0.8;
-        padding: 2rem 1.5rem 2.5rem;
+      #message {
+        color: var(--accent-2);
+      }
+
+      #message.warn {
+        color: var(--danger);
       }
     </style>
   </head>
   <body>
-    <header>
-      <h1>Zelda: Breath of the Wild</h1>
-      <p class="subtitle">Ein kleines Fan-Poster als Webseite für Hyrule-Abenteurer.</p>
-    </header>
+    <div class="game-shell">
+      <div class="hud">
+        <div class="stats">
+          <div class="stat">❤️ Leben: <strong id="hearts">5</strong></div>
+          <div class="stat">💎 Rubine: <strong id="rupees">0</strong> / 8</div>
+          <div class="stat">👾 Gegner: <strong id="enemies">0</strong></div>
+        </div>
+        <div class="stat" id="message">Sammle 8 Rubine und erreiche den Tempel!</div>
+      </div>
 
-    <main>
-      <section class="card">
-        <h2>Worum geht's?</h2>
-        <p>
-          In <strong>The Legend of Zelda: Breath of the Wild</strong> erkundest du ein riesiges,
-          offenes Hyrule, löst Schreine, kämpfst gegen Wächter und bereitest dich auf das Duell
-          gegen die Verheerung Ganon vor.
-        </p>
-      </section>
+      <canvas id="game" width="640" height="416" aria-label="Mini Zelda Spiel"></canvas>
+      <p class="help">
+        Steuerung: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> oder Pfeiltasten bewegen,
+        <kbd>Leertaste</kbd> Schwertangriff, <kbd>R</kbd> Neustart.
+      </p>
+    </div>
 
-      <section class="card">
-        <h2>Highlights</h2>
-        <ul>
-          <li>Offene Welt mit nahezu grenzenloser Freiheit</li>
-          <li>Physik-basierte Rätsel und kreative Kampfmöglichkeiten</li>
-          <li>Kochen, Klettern, Reiten und Entdecken an jeder Ecke</li>
-          <li>Unvergesslicher Soundtrack und Atmosphäre</li>
-        </ul>
-      </section>
+    <script>
+      const canvas = document.getElementById("game");
+      const ctx = canvas.getContext("2d");
 
-      <section class="card">
-        <h2>Legendärer Tipp</h2>
-        <p>
-          Markiere auf deiner Karte wichtige Schreine und Türme frühzeitig – so baust du dir ein
-          schnelles Reise-Netzwerk für die gesamte Story auf.
-        </p>
-        <a class="cta" href="https://www.zelda.com/breath-of-the-wild/" target="_blank" rel="noopener noreferrer">Offizielle BOTW-Seite</a>
-      </section>
-    </main>
+      const heartsEl = document.getElementById("hearts");
+      const rupeesEl = document.getElementById("rupees");
+      const enemiesEl = document.getElementById("enemies");
+      const messageEl = document.getElementById("message");
 
-    <footer>
-      Für Fans von Link, Zelda und ganz viel Entdeckergeist.
-    </footer>
+      const TILE = 32;
+      const MAP_W = 20;
+      const MAP_H = 13;
+      const MAX_RUPEES = 8;
+
+      const COLORS = {
+        grass: "#2f8f46",
+        grassAlt: "#338b48",
+        wall: "#25303c",
+        wallTop: "#3e4f62",
+        temple: "#d5b35f",
+        templeDoor: "#684f27",
+        rupee: "#6bf8df",
+        link: "#8ddf67",
+        linkHat: "#35af4f",
+        enemy: "#cc5757",
+        sword: "#f2f2f2",
+      };
+
+      const map = [
+        "####################",
+        "#.............#....#",
+        "#..###........#....#",
+        "#..............##..#",
+        "#....#.............#",
+        "#....#......####...#",
+        "#..........#....#..#",
+        "#..####.....#......#",
+        "#...........#..##..#",
+        "#....#.............#",
+        "#....#......###....#",
+        "#....#..........T..#",
+        "####################",
+      ];
+
+      const keyState = new Set();
+
+      let player;
+      let enemies;
+      let rupees;
+      let invulnerableTimer = 0;
+      let attackTimer = 0;
+      let gameOver = false;
+      let win = false;
+
+      function setMessage(text, warning = false) {
+        messageEl.textContent = text;
+        messageEl.classList.toggle("warn", warning);
+      }
+
+      function tileAt(px, py) {
+        const tx = Math.floor(px / TILE);
+        const ty = Math.floor(py / TILE);
+        if (ty < 0 || ty >= MAP_H || tx < 0 || tx >= MAP_W) return "#";
+        return map[ty][tx];
+      }
+
+      function isBlocked(px, py) {
+        return tileAt(px, py) === "#";
+      }
+
+      function canMoveTo(nx, ny, size = 22) {
+        const half = size / 2;
+        return (
+          !isBlocked(nx - half, ny - half) &&
+          !isBlocked(nx + half, ny - half) &&
+          !isBlocked(nx - half, ny + half) &&
+          !isBlocked(nx + half, ny + half)
+        );
+      }
+
+      function randomWalkablePosition() {
+        while (true) {
+          const tx = 1 + Math.floor(Math.random() * (MAP_W - 2));
+          const ty = 1 + Math.floor(Math.random() * (MAP_H - 2));
+          if (map[ty][tx] !== ".") continue;
+          return { x: tx * TILE + TILE / 2, y: ty * TILE + TILE / 2 };
+        }
+      }
+
+      function dist(a, b) {
+        return Math.hypot(a.x - b.x, a.y - b.y);
+      }
+
+      function rectCircleCollides(rect, circle) {
+        const nearestX = Math.max(rect.x, Math.min(circle.x, rect.x + rect.w));
+        const nearestY = Math.max(rect.y, Math.min(circle.y, rect.y + rect.h));
+        const dx = circle.x - nearestX;
+        const dy = circle.y - nearestY;
+        return dx * dx + dy * dy < circle.r * circle.r;
+      }
+
+      function resetGame() {
+        player = {
+          x: TILE * 1.5,
+          y: TILE * 1.5,
+          dir: "down",
+          speed: 150,
+          hp: 5,
+          rupees: 0,
+          size: 22,
+        };
+
+        enemies = Array.from({ length: 6 }, () => {
+          const pos = randomWalkablePosition();
+          return {
+            ...pos,
+            size: 22,
+            speed: 50 + Math.random() * 30,
+            dirX: Math.random() > 0.5 ? 1 : -1,
+            dirY: Math.random() > 0.5 ? 1 : -1,
+            wanderTimer: 0,
+            alive: true,
+          };
+        });
+
+        rupees = Array.from({ length: MAX_RUPEES }, () => ({
+          ...randomWalkablePosition(),
+          taken: false,
+        }));
+
+        invulnerableTimer = 0;
+        attackTimer = 0;
+        gameOver = false;
+        win = false;
+
+        setMessage("Sammle 8 Rubine und erreiche den Tempel!");
+        updateHud();
+      }
+
+      function updateHud() {
+        heartsEl.textContent = player.hp;
+        rupeesEl.textContent = player.rupees;
+        enemiesEl.textContent = enemies.filter((e) => e.alive).length;
+      }
+
+      function getAttackRect() {
+        const range = 30;
+        const width = 26;
+        if (player.dir === "up") {
+          return { x: player.x - width / 2, y: player.y - player.size / 2 - range, w: width, h: range };
+        }
+        if (player.dir === "down") {
+          return { x: player.x - width / 2, y: player.y + player.size / 2, w: width, h: range };
+        }
+        if (player.dir === "left") {
+          return { x: player.x - player.size / 2 - range, y: player.y - width / 2, w: range, h: width };
+        }
+        return { x: player.x + player.size / 2, y: player.y - width / 2, w: range, h: width };
+      }
+
+      function updatePlayer(dt) {
+        let mx = 0;
+        let my = 0;
+
+        if (keyState.has("arrowup") || keyState.has("w")) {
+          my -= 1;
+          player.dir = "up";
+        }
+        if (keyState.has("arrowdown") || keyState.has("s")) {
+          my += 1;
+          player.dir = "down";
+        }
+        if (keyState.has("arrowleft") || keyState.has("a")) {
+          mx -= 1;
+          player.dir = "left";
+        }
+        if (keyState.has("arrowright") || keyState.has("d")) {
+          mx += 1;
+          player.dir = "right";
+        }
+
+        if (mx !== 0 || my !== 0) {
+          const len = Math.hypot(mx, my);
+          mx /= len;
+          my /= len;
+        }
+
+        const nx = player.x + mx * player.speed * dt;
+        const ny = player.y + my * player.speed * dt;
+
+        if (canMoveTo(nx, player.y, player.size)) {
+          player.x = nx;
+        }
+        if (canMoveTo(player.x, ny, player.size)) {
+          player.y = ny;
+        }
+
+        if (attackTimer > 0) {
+          const attackRect = getAttackRect();
+          for (const enemy of enemies) {
+            if (!enemy.alive) continue;
+            if (rectCircleCollides(attackRect, { x: enemy.x, y: enemy.y, r: enemy.size / 2 })) {
+              enemy.alive = false;
+            }
+          }
+        }
+      }
+
+      function updateEnemies(dt) {
+        for (const enemy of enemies) {
+          if (!enemy.alive) continue;
+
+          enemy.wanderTimer -= dt;
+          if (enemy.wanderTimer <= 0) {
+            enemy.wanderTimer = 0.6 + Math.random() * 1.4;
+            const options = [
+              [1, 0],
+              [-1, 0],
+              [0, 1],
+              [0, -1],
+            ];
+            const pick = options[Math.floor(Math.random() * options.length)];
+            enemy.dirX = pick[0];
+            enemy.dirY = pick[1];
+          }
+
+          if (dist(enemy, player) < 150) {
+            const vx = player.x - enemy.x;
+            const vy = player.y - enemy.y;
+            const len = Math.hypot(vx, vy) || 1;
+            enemy.dirX = vx / len;
+            enemy.dirY = vy / len;
+          }
+
+          const nx = enemy.x + enemy.dirX * enemy.speed * dt;
+          const ny = enemy.y + enemy.dirY * enemy.speed * dt;
+
+          if (canMoveTo(nx, enemy.y, enemy.size)) {
+            enemy.x = nx;
+          } else {
+            enemy.dirX *= -1;
+          }
+
+          if (canMoveTo(enemy.x, ny, enemy.size)) {
+            enemy.y = ny;
+          } else {
+            enemy.dirY *= -1;
+          }
+
+          if (dist(enemy, player) < 20 && invulnerableTimer <= 0) {
+            player.hp -= 1;
+            invulnerableTimer = 1;
+            if (player.hp <= 0) {
+              gameOver = true;
+              setMessage("Du wurdest besiegt. Drücke R für Neustart.", true);
+            } else {
+              setMessage("Autsch! Gegner getroffen. Kurz unverwundbar.", true);
+            }
+          }
+        }
+      }
+
+      function updateRupees() {
+        for (const rupee of rupees) {
+          if (rupee.taken) continue;
+          if (dist(rupee, player) < 18) {
+            rupee.taken = true;
+            player.rupees += 1;
+            if (player.rupees === MAX_RUPEES) {
+              setMessage("Alle Rubine gesammelt! Jetzt zum Tempel (goldenes Feld).");
+            }
+          }
+        }
+      }
+
+      function checkTempleWin() {
+        if (player.rupees < MAX_RUPEES) return;
+        const tx = Math.floor(player.x / TILE);
+        const ty = Math.floor(player.y / TILE);
+        if (map[ty][tx] === "T") {
+          win = true;
+          setMessage("Sieg! Hyrule ist sicher. Drücke R für ein neues Spiel.");
+        }
+      }
+
+      function drawMap() {
+        for (let y = 0; y < MAP_H; y++) {
+          for (let x = 0; x < MAP_W; x++) {
+            const cell = map[y][x];
+            const px = x * TILE;
+            const py = y * TILE;
+
+            if (cell === "#") {
+              ctx.fillStyle = COLORS.wall;
+              ctx.fillRect(px, py, TILE, TILE);
+              ctx.fillStyle = COLORS.wallTop;
+              ctx.fillRect(px, py, TILE, 8);
+            } else if (cell === "T") {
+              ctx.fillStyle = COLORS.temple;
+              ctx.fillRect(px, py, TILE, TILE);
+              ctx.fillStyle = COLORS.templeDoor;
+              ctx.fillRect(px + 10, py + 10, 12, 18);
+            } else {
+              ctx.fillStyle = (x + y) % 2 === 0 ? COLORS.grass : COLORS.grassAlt;
+              ctx.fillRect(px, py, TILE, TILE);
+            }
+          }
+        }
+      }
+
+      function drawRupees() {
+        for (const rupee of rupees) {
+          if (rupee.taken) continue;
+          ctx.fillStyle = COLORS.rupee;
+          ctx.beginPath();
+          ctx.moveTo(rupee.x, rupee.y - 8);
+          ctx.lineTo(rupee.x + 6, rupee.y);
+          ctx.lineTo(rupee.x, rupee.y + 8);
+          ctx.lineTo(rupee.x - 6, rupee.y);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+
+      function drawEnemies() {
+        for (const enemy of enemies) {
+          if (!enemy.alive) continue;
+          ctx.fillStyle = COLORS.enemy;
+          ctx.beginPath();
+          ctx.arc(enemy.x, enemy.y, enemy.size / 2, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = "#fff";
+          ctx.fillRect(enemy.x - 6, enemy.y - 2, 3, 3);
+          ctx.fillRect(enemy.x + 3, enemy.y - 2, 3, 3);
+        }
+      }
+
+      function drawPlayer() {
+        const flicker = invulnerableTimer > 0 && Math.floor(invulnerableTimer * 20) % 2 === 0;
+        if (!flicker) {
+          ctx.fillStyle = COLORS.link;
+          ctx.fillRect(player.x - 10, player.y - 7, 20, 16);
+          ctx.fillStyle = COLORS.linkHat;
+          ctx.fillRect(player.x - 9, player.y - 13, 18, 7);
+        }
+
+        if (attackTimer > 0) {
+          const rect = getAttackRect();
+          ctx.fillStyle = COLORS.sword;
+          ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+        }
+      }
+
+      function drawOverlay() {
+        if (!gameOver && !win) return;
+
+        ctx.fillStyle = "rgba(5, 8, 12, 0.55)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 34px Segoe UI";
+        ctx.textAlign = "center";
+        ctx.fillText(win ? "SIEG!" : "GAME OVER", canvas.width / 2, canvas.height / 2 - 12);
+
+        ctx.font = "18px Segoe UI";
+        ctx.fillText("Drücke R für Neustart", canvas.width / 2, canvas.height / 2 + 24);
+      }
+
+      function update(dt) {
+        if (gameOver || win) return;
+
+        if (invulnerableTimer > 0) invulnerableTimer -= dt;
+        if (attackTimer > 0) attackTimer -= dt;
+
+        updatePlayer(dt);
+        updateEnemies(dt);
+        updateRupees();
+        checkTempleWin();
+        updateHud();
+      }
+
+      function render() {
+        drawMap();
+        drawRupees();
+        drawEnemies();
+        drawPlayer();
+        drawOverlay();
+      }
+
+      let last = performance.now();
+      function gameLoop(ts) {
+        const dt = Math.min((ts - last) / 1000, 0.033);
+        last = ts;
+
+        update(dt);
+        render();
+
+        requestAnimationFrame(gameLoop);
+      }
+
+      window.addEventListener("keydown", (event) => {
+        const key = event.key.toLowerCase();
+
+        if (["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "r"].includes(key)) {
+          event.preventDefault();
+        }
+
+        if (key === " ") {
+          if (!gameOver && !win) attackTimer = 0.18;
+          return;
+        }
+
+        if (key === "r") {
+          resetGame();
+          return;
+        }
+
+        keyState.add(key);
+      });
+
+      window.addEventListener("keyup", (event) => {
+        keyState.delete(event.key.toLowerCase());
+      });
+
+      resetGame();
+      requestAnimationFrame(gameLoop);
+    </script>
   </body>
 </html>
