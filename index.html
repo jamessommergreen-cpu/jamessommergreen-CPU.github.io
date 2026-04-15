@@ -361,7 +361,7 @@
           player.dir = "down";
         }
 
-        const enemyCount = isShopLevel ? 0 : randInt(1, 10);
+        const enemyCount = isShopLevel ? 0 : randInt(1, 5);
         enemies = Array.from({ length: enemyCount }, () => {
           const pos = randomWalkablePosition();
           const hasBow = Math.random() < 0.4;
