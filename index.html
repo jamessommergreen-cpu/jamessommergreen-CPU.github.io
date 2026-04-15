@@ -111,7 +111,7 @@
         <div class="stats">
           <div class="stat">🧭 Level: <strong id="level">1</strong></div>
           <div class="stat">❤️ Leben: <strong id="hearts">5</strong></div>
-          <div class="stat">⚔️ Schaden: <strong id="damage">1</strong></div>
+          <div class="stat">⚔️ Schaden: <strong id="damage">2</strong></div>
           <div class="stat">💎 Rubine: <strong id="rupees">0</strong> / 8</div>
           <div class="stat">👾 Gegner: <strong id="enemies">0</strong></div>
         </div>
@@ -349,7 +349,8 @@
             speed: 150,
             hp: 5,
             rupees: 0,
-            damage: 1,
+            bowDamage: 2,
+            swordDamage: 4,
             size: 22,
             hasSword: false,
           };
@@ -473,7 +474,7 @@
       function updateHud() {
         levelEl.textContent = level;
         heartsEl.textContent = player.hp;
-        damageEl.textContent = player.damage;
+        damageEl.textContent = player.hasSword && swordDrawn ? player.swordDamage : player.bowDamage;
         rupeesEl.textContent = player.rupees;
         enemiesEl.textContent = enemies.filter((e) => e.alive).length;
       }
@@ -520,6 +521,7 @@
         if (player.hasSword && swordDrawn) {
           swordDrawn = false;
           setMessage("Link wechselt zurück zum Bogen. Das Masterschwert ist wieder auf dem Rücken.");
+          updateHud();
         }
         const dirs = {
           up: [0, -1],
@@ -544,11 +546,23 @@
         swordSlashTimer = 0.2;
         for (const enemy of enemies) {
           if (!enemy.alive) continue;
-          if (dist(enemy, player) < 55) {
-            enemy.hp -= player.damage;
+          if (isEnemyInSwordReach(enemy)) {
+            enemy.hp -= player.swordDamage;
             if (enemy.hp <= 0) enemy.alive = false;
           }
         }
+      }
+
+      function isEnemyInSwordReach(enemy) {
+        const dx = enemy.x - player.x;
+        const dy = enemy.y - player.y;
+        const reach = TILE * 2;
+        const hitWidth = enemy.size * 0.5 + 10;
+
+        if (player.dir === "up") return dy <= 0 && dy >= -reach && Math.abs(dx) <= hitWidth;
+        if (player.dir === "down") return dy >= 0 && dy <= reach && Math.abs(dx) <= hitWidth;
+        if (player.dir === "left") return dx <= 0 && dx >= -reach && Math.abs(dy) <= hitWidth;
+        return dx >= 0 && dx <= reach && Math.abs(dy) <= hitWidth;
       }
 
       function toggleSwordMode() {
@@ -556,6 +570,7 @@
         if (!swordDrawn) {
           swordDrawn = true;
           setMessage("Masterschwert gezogen! Drücke F erneut für den Schlag.");
+          updateHud();
           return;
         }
         useSwordSlash();
@@ -575,7 +590,7 @@
           for (const enemy of enemies) {
             if (!enemy.alive) continue;
             if (dist(arrow, enemy) < enemy.size * 0.55) {
-              enemy.hp -= player.damage;
+              enemy.hp -= player.bowDamage;
               if (enemy.hp <= 0) enemy.alive = false;
               arrow.alive = false;
               break;
@@ -764,8 +779,8 @@
           return;
         }
         player.rupees -= 5;
-        player.damage += 1;
-        setMessage(`Schaden verbessert! Neuer Schaden: ${player.damage}.`);
+        player.swordDamage += 1;
+        setMessage(`Schwertschaden verbessert! Neuer Schwertschaden: ${player.swordDamage}.`);
         updateHud();
       }
 
