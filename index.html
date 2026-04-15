@@ -219,14 +219,23 @@
             placedWalls += 1;
           }
 
-          let specialPlaced = false;
-          while (!specialPlaced) {
-            const tx = randInt(1, MAP_W - 2);
-            const ty = randInt(1, MAP_H - 2);
-            if (reserved.has(`${tx},${ty}`)) continue;
-            if (grid[ty][tx] !== ".") continue;
-            grid[ty][tx] = level % 3 === 0 ? "S" : "T";
-            specialPlaced = true;
+          const placeSpecialTile = (symbol) => {
+            let placed = false;
+            while (!placed) {
+              const tx = randInt(1, MAP_W - 2);
+              const ty = randInt(1, MAP_H - 2);
+              if (reserved.has(`${tx},${ty}`)) continue;
+              if (grid[ty][tx] !== ".") continue;
+              grid[ty][tx] = symbol;
+              placed = true;
+            }
+          };
+
+          if (level % 3 === 0) {
+            placeSpecialTile("S");
+            placeSpecialTile("T");
+          } else {
+            placeSpecialTile("T");
           }
 
           if (isLevelReachable(grid)) {
