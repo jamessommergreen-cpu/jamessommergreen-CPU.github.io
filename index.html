@@ -327,6 +327,10 @@
       }
 
       function shootArrow() {
+        if (player.hasSword && swordDrawn) {
+          swordDrawn = false;
+          setMessage("Link wechselt zurück zum Bogen. Das Masterschwert ist wieder auf dem Rücken.");
+        }
         const dirs = {
           up: [0, -1],
           down: [0, 1],
