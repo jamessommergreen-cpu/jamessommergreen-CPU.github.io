@@ -109,11 +109,13 @@
     <div class="game-shell">
       <div class="hud">
         <div class="stats">
+          <div class="stat">🧭 Level: <strong id="level">1</strong></div>
           <div class="stat">❤️ Leben: <strong id="hearts">5</strong></div>
+          <div class="stat">⚔️ Schaden: <strong id="damage">1</strong></div>
           <div class="stat">💎 Rubine: <strong id="rupees">0</strong> / 8</div>
           <div class="stat">👾 Gegner: <strong id="enemies">0</strong></div>
         </div>
-        <div class="stat" id="message">Sammle 8 Rubine, besiege Bokoblins mit dem Bogen und erreiche den Tempel!</div>
+        <div class="stat" id="message">Sammle 8 Rubine, besiege Bokoblins und gehe in den Tempel für das nächste Level!</div>
       </div>
 
       <div class="canvas-wrap">
@@ -121,7 +123,7 @@
       </div>
       <p class="help">
         Steuerung: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> oder Pfeiltasten bewegen,
-        <kbd>Leertaste</kbd> Bogen schießen, <kbd>F</kbd> Masterschwert ziehen/angreifen, <kbd>R</kbd> Neustart.
+        <kbd>Leertaste</kbd> Bogen schießen, <kbd>F</kbd> Masterschwert ziehen/angreifen, <kbd>1</kbd>/<kbd>2</kbd> im Shop kaufen, <kbd>R</kbd> Neustart.
       </p>
     </div>
 
@@ -129,7 +131,9 @@
       const canvas = document.getElementById("game");
       const ctx = canvas.getContext("2d");
 
+      const levelEl = document.getElementById("level");
       const heartsEl = document.getElementById("hearts");
+      const damageEl = document.getElementById("damage");
       const rupeesEl = document.getElementById("rupees");
       const enemiesEl = document.getElementById("enemies");
       const messageEl = document.getElementById("message");
@@ -148,6 +152,8 @@
         wallTop: "#3e4f62",
         temple: "#d5b35f",
         templeDoor: "#684f27",
+        shop: "#7b4db5",
+        shopDoor: "#2c1744",
         rupee: "#6bf8df",
         link: "#f2d7b0",
         linkHair: "#9b6730",
@@ -184,6 +190,8 @@
       let worldTime = 0;
       let endStateTimer = 0;
       let endParticles = [];
+      let level = 1;
+      let inShop = false;
 
       function randInt(min, max) {
         return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -211,14 +219,14 @@
             placedWalls += 1;
           }
 
-          let templePlaced = false;
-          while (!templePlaced) {
+          let specialPlaced = false;
+          while (!specialPlaced) {
             const tx = randInt(1, MAP_W - 2);
             const ty = randInt(1, MAP_H - 2);
             if (reserved.has(`${tx},${ty}`)) continue;
             if (grid[ty][tx] !== ".") continue;
-            grid[ty][tx] = "T";
-            templePlaced = true;
+            grid[ty][tx] = level % 3 === 0 ? "S" : "T";
+            specialPlaced = true;
           }
 
           if (isLevelReachable(grid)) {
@@ -240,7 +248,7 @@
 
         while (queue.length > 0) {
           const current = queue.shift();
-          if (grid[current.y][current.x] === "T") return true;
+          if (grid[current.y][current.x] === "T" || grid[current.y][current.x] === "S") return true;
 
           const nextCells = [
             [current.x + 1, current.y],
@@ -303,20 +311,30 @@
         return Math.hypot(a.x - b.x, a.y - b.y);
       }
 
-      function resetGame() {
+      function setupLevel(keepStats = true) {
         map = generateRandomLevel();
-        player = {
-          x: TILE * 1.5,
-          y: TILE * 1.5,
-          dir: "down",
-          speed: 150,
-          hp: 5,
-          rupees: 0,
-          size: 22,
-          hasSword: false,
-        };
 
-        const enemyCount = randInt(1, 10);
+        if (!keepStats || !player) {
+          player = {
+            x: TILE * 1.5,
+            y: TILE * 1.5,
+            dir: "down",
+            speed: 150,
+            hp: 5,
+            rupees: 0,
+            damage: 1,
+            size: 22,
+            hasSword: false,
+          };
+          level = 1;
+        } else {
+          player.x = TILE * 1.5;
+          player.y = TILE * 1.5;
+          player.dir = "down";
+        }
+
+        const isShopLevel = level % 3 === 0;
+        const enemyCount = isShopLevel ? 0 : randInt(1, 10);
         enemies = Array.from({ length: enemyCount }, () => {
           const pos = randomWalkablePosition();
           return {
@@ -331,14 +349,18 @@
             attackHit: false,
             facing: 1,
             animOffset: Math.random() * Math.PI * 2,
+            hp: 10,
+            maxHp: 10,
             alive: true,
           };
         });
 
-        rupees = Array.from({ length: MAX_RUPEES }, () => ({
-          ...randomWalkablePosition(),
-          taken: false,
-        }));
+        rupees = isShopLevel
+          ? []
+          : Array.from({ length: MAX_RUPEES }, () => ({
+              ...randomWalkablePosition(),
+              taken: false,
+            }));
 
         invulnerableTimer = 0;
         arrows = [];
@@ -355,12 +377,26 @@
         swordDrawn = false;
         gameOver = false;
         win = false;
+        inShop = isShopLevel;
         worldTime = 0;
         endStateTimer = 0;
         endParticles = [];
 
-        setMessage(`Neues Level! ${enemyCount} Bokoblins und ${levelWallCount} Wände warten auf dich.`);
+        if (isShopLevel) {
+          setMessage("Shop-Level! Taste 1: +1 Herz (3 Rubine), Taste 2: +1 Schaden (5 Rubine), dann Tempel betreten.");
+        } else {
+          setMessage(`Level ${level}: ${enemyCount} Bokoblins (10 HP) und ${levelWallCount} Wände warten.`);
+        }
         updateHud();
+      }
+
+      function resetGame() {
+        setupLevel(false);
+      }
+
+      function nextLevel() {
+        level += 1;
+        setupLevel(true);
       }
 
       function spawnEndParticles(type) {
@@ -396,7 +432,9 @@
       }
 
       function updateHud() {
+        levelEl.textContent = level;
         heartsEl.textContent = player.hp;
+        damageEl.textContent = player.damage;
         rupeesEl.textContent = player.rupees;
         enemiesEl.textContent = enemies.filter((e) => e.alive).length;
       }
@@ -468,7 +506,8 @@
         for (const enemy of enemies) {
           if (!enemy.alive) continue;
           if (dist(enemy, player) < 35) {
-            enemy.alive = false;
+            enemy.hp -= player.damage;
+            if (enemy.hp <= 0) enemy.alive = false;
           }
         }
       }
@@ -497,7 +536,8 @@
           for (const enemy of enemies) {
             if (!enemy.alive) continue;
             if (dist(arrow, enemy) < enemy.size * 0.55) {
-              enemy.alive = false;
+              enemy.hp -= player.damage;
+              if (enemy.hp <= 0) enemy.alive = false;
               arrow.alive = false;
               break;
             }
@@ -610,17 +650,51 @@
         }
       }
 
+      function buyHeart() {
+        if (!inShop) return;
+        if (player.rupees < 3) {
+          setMessage("Nicht genug Rubine für ein Herz (3).", true);
+          return;
+        }
+        player.rupees -= 3;
+        player.hp += 1;
+        setMessage("Herz gekauft! +1 Leben.");
+        updateHud();
+      }
+
+      function buyDamage() {
+        if (!inShop) return;
+        if (player.rupees < 5) {
+          setMessage("Nicht genug Rubine für Schaden (5).", true);
+          return;
+        }
+        player.rupees -= 5;
+        player.damage += 1;
+        setMessage(`Schaden verbessert! Neuer Schaden: ${player.damage}.`);
+        updateHud();
+      }
+
       function checkTempleWin() {
-        if (player.rupees < MAX_RUPEES) return;
-        if (enemies.some((enemy) => enemy.alive)) return;
         const tx = Math.floor(player.x / TILE);
         const ty = Math.floor(player.y / TILE);
-        if (map[ty][tx] === "T") {
-          win = true;
-          endStateTimer = 0;
-          spawnEndParticles("win");
-          setMessage("Sieg! Hyrule ist sicher. Drücke R für ein neues Spiel.");
+        const tile = map[ty]?.[tx];
+
+        if (tile === "S") {
+          setMessage("Willkommen im Shop! Taste 1: Herz (3), Taste 2: Schaden (5), dann weiter durch den Tempel.");
+          return;
         }
+
+        if (tile !== "T") return;
+
+        if (inShop) {
+          nextLevel();
+          return;
+        }
+
+        if (player.rupees < MAX_RUPEES) return;
+        if (enemies.some((enemy) => enemy.alive)) return;
+
+        nextLevel();
       }
 
       function updateEndEffects(dt) {
@@ -690,6 +764,14 @@
               ctx.fillStyle = g;
               ctx.fillRect(px, py, TILE, TILE);
               ctx.fillStyle = COLORS.templeDoor;
+              ctx.fillRect(px + 10, py + 10, 12, 18);
+            } else if (cell === "S") {
+              const sg = ctx.createLinearGradient(px, py, px, py + TILE);
+              sg.addColorStop(0, "#9f71da");
+              sg.addColorStop(1, COLORS.shop);
+              ctx.fillStyle = sg;
+              ctx.fillRect(px, py, TILE, TILE);
+              ctx.fillStyle = COLORS.shopDoor;
               ctx.fillRect(px + 10, py + 10, 12, 18);
             } else {
               ctx.fillStyle = (x + y) % 2 === 0 ? COLORS.grass : COLORS.grassAlt;
@@ -1061,8 +1143,8 @@
         updateEnemies(dt);
         updateRupees();
         updateSwordPickup();
-        if (player.rupees === MAX_RUPEES && enemies.every((enemy) => !enemy.alive)) {
-          setMessage("Alle Bokoblins besiegt! Betritt jetzt den Tempel für den Sieg.");
+        if (!inShop && player.rupees === MAX_RUPEES && enemies.every((enemy) => !enemy.alive)) {
+          setMessage("Alle Bokoblins besiegt! Betritt jetzt den Tempel für das nächste Level.");
         }
         checkTempleWin();
         updateHud();
@@ -1093,7 +1175,7 @@
       window.addEventListener("keydown", (event) => {
         const key = event.key.toLowerCase();
 
-        if (["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "f", "r"].includes(key)) {
+        if (["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "f", "r", "1", "2"].includes(key)) {
           event.preventDefault();
         }
 
@@ -1109,6 +1191,16 @@
 
         if (key === "f") {
           toggleSwordMode();
+          return;
+        }
+
+        if (key === "1") {
+          buyHeart();
+          return;
+        }
+
+        if (key === "2") {
+          buyDamage();
           return;
         }
 
