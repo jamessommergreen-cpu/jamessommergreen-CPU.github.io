@@ -193,6 +193,8 @@
       let endParticles = [];
       let level = 1;
       let inShop = false;
+      let shopStations = null;
+      let shopTouchCooldown = 0;
 
       function randInt(min, max) {
         return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -248,6 +250,20 @@
         levelWallCount = 0;
         return Array.from({ length: MAP_H }, (_, y) =>
           Array.from({ length: MAP_W }, (_, x) => (x === 0 || y === 0 || x === MAP_W - 1 || y === MAP_H - 1 ? "#" : ".")).join(""),
+        );
+      }
+
+
+      function generateShopLevel() {
+        levelWallCount = 0;
+        const centerTempleX = Math.floor(MAP_W / 2);
+        const centerTempleY = 2;
+        return Array.from({ length: MAP_H }, (_, y) =>
+          Array.from({ length: MAP_W }, (_, x) => {
+            if (x === 0 || y === 0 || x === MAP_W - 1 || y === MAP_H - 1) return "#";
+            if (x === centerTempleX && y === centerTempleY) return "T";
+            return "S";
+          }).join(""),
         );
       }
 
@@ -322,7 +338,8 @@
       }
 
       function setupLevel(keepStats = true) {
-        map = generateRandomLevel();
+        const isShopLevel = level % 3 === 0;
+        map = isShopLevel ? generateShopLevel() : generateRandomLevel();
 
         if (!keepStats || !player) {
           player = {
@@ -343,7 +360,6 @@
           player.dir = "down";
         }
 
-        const isShopLevel = level % 3 === 0;
         const enemyCount = isShopLevel ? 0 : randInt(1, 10);
         enemies = Array.from({ length: enemyCount }, () => {
           const pos = randomWalkablePosition();
@@ -387,19 +403,26 @@
         }
         swordPickup = {
           ...swordPos,
-          taken: false,
+          taken: isShopLevel,
         };
         swordSlashTimer = 0;
         swordDrawn = false;
         gameOver = false;
         win = false;
         inShop = isShopLevel;
+        shopStations = isShopLevel
+          ? {
+              heart: { x: TILE * 3.5, y: canvas.height / 2, radius: 26 },
+              sword: { x: canvas.width - TILE * 3.5, y: canvas.height / 2, radius: 26 },
+            }
+          : null;
+        shopTouchCooldown = 0;
         worldTime = 0;
         endStateTimer = 0;
         endParticles = [];
 
         if (isShopLevel) {
-          setMessage("Shop-Level! Taste 1: +1 Herz (3 Rubine), Taste 2: +1 Schaden (5 Rubine), dann Tempel betreten.");
+          setMessage("Shop-Level! Ganze Karte ist der Shop: links Herz (+1 Leben, 3 Rubine), rechts Schwert (+1 Schaden, 5 Rubine).");
         } else {
           setMessage(`Level ${level}: ${enemyCount} Bokoblins (5 HP, teils mit Bogen) und ${levelWallCount} Wände warten.`);
         }
@@ -746,13 +769,31 @@
         updateHud();
       }
 
+
+      function updateShopStations(dt) {
+        if (!inShop || !shopStations) return;
+        shopTouchCooldown = Math.max(0, shopTouchCooldown - dt);
+        if (shopTouchCooldown > 0) return;
+
+        if (dist(player, shopStations.heart) < shopStations.heart.radius) {
+          buyHeart();
+          shopTouchCooldown = 0.25;
+          return;
+        }
+
+        if (dist(player, shopStations.sword) < shopStations.sword.radius) {
+          buyDamage();
+          shopTouchCooldown = 0.25;
+        }
+      }
+
       function checkTempleWin() {
         const tx = Math.floor(player.x / TILE);
         const ty = Math.floor(player.y / TILE);
         const tile = map[ty]?.[tx];
 
         if (tile === "S") {
-          setMessage("Willkommen im Shop! Taste 1: Herz (3), Taste 2: Schaden (5), dann weiter durch den Tempel.");
+          setMessage("Willkommen im Shop! Links Herz kaufen, rechts Schwertschaden kaufen – dann zum Tempel.");
           return;
         }
 
@@ -851,6 +892,55 @@
             }
           }
         }
+      }
+
+
+      function drawShopStations() {
+        if (!inShop || !shopStations) return;
+
+        const drawPlate = (station, colorTop, colorBottom) => {
+          const grad = ctx.createLinearGradient(station.x, station.y - 18, station.x, station.y + 18);
+          grad.addColorStop(0, colorTop);
+          grad.addColorStop(1, colorBottom);
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.roundRect(station.x - 26, station.y - 16, 52, 32, 8);
+          ctx.fill();
+          ctx.strokeStyle = "rgba(14, 19, 30, 0.55)";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        };
+
+        drawPlate(shopStations.heart, "#ffd8dd", "#df5f74");
+        drawPlate(shopStations.sword, "#ecf5ff", "#7e9ec0");
+
+        // Herz-Symbol links
+        const h = shopStations.heart;
+        ctx.fillStyle = "#b91d39";
+        ctx.beginPath();
+        ctx.moveTo(h.x, h.y + 9);
+        ctx.bezierCurveTo(h.x - 22, h.y - 6, h.x - 16, h.y - 25, h.x, h.y - 10);
+        ctx.bezierCurveTo(h.x + 16, h.y - 25, h.x + 22, h.y - 6, h.x, h.y + 9);
+        ctx.fill();
+
+        // Schwert-Symbol rechts
+        const sw = shopStations.sword;
+        ctx.save();
+        ctx.translate(sw.x, sw.y + 2);
+        ctx.rotate(-0.25);
+        ctx.fillStyle = "#e7eef8";
+        ctx.fillRect(-2, -15, 4, 20);
+        ctx.fillStyle = "#4560a2";
+        ctx.fillRect(-8, 2, 16, 4);
+        ctx.fillStyle = "#2b3f79";
+        ctx.fillRect(-2, 6, 4, 7);
+        ctx.restore();
+
+        ctx.fillStyle = "rgba(8, 14, 20, 0.75)";
+        ctx.font = "12px Segoe UI";
+        ctx.textAlign = "center";
+        ctx.fillText("+1 Herz (3)", h.x, h.y + 28);
+        ctx.fillText("+1 Schwert (5)", sw.x, sw.y + 28);
       }
 
       function drawSwordPickup() {
@@ -1236,6 +1326,7 @@
         updateEnemies(dt);
         updateRupees();
         updateSwordPickup();
+        updateShopStations(dt);
         if (!inShop && player.rupees === MAX_RUPEES && enemies.every((enemy) => !enemy.alive)) {
           setMessage("Alle Bokoblins besiegt! Betritt jetzt den Tempel für das nächste Level.");
         }
@@ -1245,6 +1336,7 @@
 
       function render() {
         drawMap();
+        drawShopStations();
         drawRupees();
         drawSwordPickup();
         drawEnemies();
