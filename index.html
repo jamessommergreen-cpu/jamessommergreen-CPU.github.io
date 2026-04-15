@@ -169,6 +169,8 @@
         arrow: "#d9c7a0",
         steel: "#dbe8f3",
         steelDark: "#8da0b3",
+        shopBg: "#050505",
+        shopWall: "#f08c1a",
       };
 
       let map = [];
@@ -257,12 +259,12 @@
       function generateShopLevel() {
         levelWallCount = 0;
         const centerTempleX = Math.floor(MAP_W / 2);
-        const centerTempleY = 2;
+        const centerTempleY = 1;
         return Array.from({ length: MAP_H }, (_, y) =>
           Array.from({ length: MAP_W }, (_, x) => {
             if (x === 0 || y === 0 || x === MAP_W - 1 || y === MAP_H - 1) return "#";
             if (x === centerTempleX && y === centerTempleY) return "T";
-            return "S";
+            return ".";
           }).join(""),
         );
       }
@@ -423,7 +425,7 @@
         endParticles = [];
 
         if (isShopLevel) {
-          setMessage("Shop-Level! Ganze Karte ist der Shop: links Herz (+1 Leben, 3 Rubine), rechts Schwert (+1 Schaden, 5 Rubine).");
+          setMessage("Shop: Sprich mit dem Händler – links Herz (+1 Leben), rechts Schaden (+1 auf Schwert und Bogen).");
         } else {
           setMessage(`Level ${level}: ${enemyCount} Bokoblins (5 HP, teils mit Bogen) und ${levelWallCount} Wände warten.`);
         }
@@ -780,7 +782,8 @@
         }
         player.rupees -= 5;
         player.swordDamage += 1;
-        setMessage(`Schwertschaden verbessert! Neuer Schwertschaden: ${player.swordDamage}.`);
+        player.bowDamage += 1;
+        setMessage(`Upgrade aktiv! Masterschwert: ${player.swordDamage}, Bogen: ${player.bowDamage}.`);
         updateHud();
       }
 
@@ -868,6 +871,11 @@
       }
 
       function drawMap() {
+        if (inShop) {
+          drawShopBackdrop();
+          return;
+        }
+
         const floorGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
         floorGrad.addColorStop(0, "#5ab879");
         floorGrad.addColorStop(1, "#2a6f3e");
@@ -907,6 +915,24 @@
             }
           }
         }
+      }
+
+      function drawShopBackdrop() {
+        ctx.fillStyle = COLORS.shopBg;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.strokeStyle = COLORS.shopWall;
+        ctx.lineWidth = TILE;
+        ctx.beginPath();
+        ctx.arc(canvas.width / 2, canvas.height + 20, canvas.width * 0.54, Math.PI, Math.PI * 2);
+        ctx.stroke();
+
+        const templeX = Math.floor(MAP_W / 2) * TILE;
+        const templeY = TILE;
+        ctx.fillStyle = "#ffe0b4";
+        ctx.fillRect(templeX, templeY, TILE, TILE);
+        ctx.fillStyle = "#8f6432";
+        ctx.fillRect(templeX + 10, templeY + 9, 12, 18);
       }
 
 
@@ -972,7 +998,49 @@
         ctx.font = "12px Segoe UI";
         ctx.textAlign = "center";
         ctx.fillText("+1 Herz (3)", h.x, h.y + 28);
-        ctx.fillText("+1 Schwert (5)", sw.x, sw.y + 28);
+        ctx.fillText("+1 Schaden (5)", sw.x, sw.y + 28);
+      }
+
+      function drawShopNpc() {
+        if (!inShop) return;
+
+        const npcX = canvas.width / 2;
+        const npcY = canvas.height / 2 - 62;
+
+        ctx.fillStyle = "rgba(0,0,0,0.35)";
+        ctx.beginPath();
+        ctx.ellipse(npcX, npcY + 36, 18, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#d9b07f";
+        ctx.beginPath();
+        ctx.arc(npcX, npcY - 10, 11, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#4a2e1d";
+        ctx.fillRect(npcX - 12, npcY + 2, 24, 28);
+        ctx.fillStyle = "#f39b4a";
+        ctx.fillRect(npcX - 14, npcY + 12, 28, 7);
+
+        const bubbleW = 330;
+        const bubbleH = 48;
+        const bubbleX = npcX - bubbleW / 2;
+        const bubbleY = npcY - 76;
+        ctx.fillStyle = "rgba(25,25,25,0.86)";
+        ctx.strokeStyle = "#ffb24a";
+        ctx.lineWidth = 2;
+        if (typeof ctx.roundRect === "function") {
+          ctx.beginPath();
+          ctx.roundRect(bubbleX, bubbleY, bubbleW, bubbleH, 10);
+        } else {
+          roundedRectPath(bubbleX, bubbleY, bubbleW, bubbleH, 10);
+        }
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#ffe7c0";
+        ctx.textAlign = "center";
+        ctx.font = "14px Segoe UI";
+        ctx.fillText("Nimm ein Herz oder nimm +1 Schaden!", npcX, bubbleY + 20);
+        ctx.fillText("Masterschwert 4→5, Bogen 2→3 (je Upgrade +1).", npcX, bubbleY + 38);
       }
 
       function drawSwordPickup() {
@@ -1369,6 +1437,7 @@
       function render() {
         drawMap();
         drawShopStations();
+        drawShopNpc();
         drawRupees();
         drawSwordPickup();
         drawEnemies();
