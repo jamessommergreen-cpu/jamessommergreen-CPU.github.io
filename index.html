@@ -299,11 +299,13 @@
         );
       }
 
-      function randomWalkablePosition() {
+      function randomWalkablePosition(blockedTiles = new Set()) {
         while (true) {
           const tx = 1 + Math.floor(Math.random() * (MAP_W - 2));
           const ty = 1 + Math.floor(Math.random() * (MAP_H - 2));
           if (map[ty][tx] !== ".") continue;
+          const key = `${tx},${ty}`;
+          if (blockedTiles.has(key)) continue;
           return { x: tx * TILE + TILE / 2, y: ty * TILE + TILE / 2 };
         }
       }
@@ -325,9 +327,11 @@
           hasSword: false,
         };
 
+        const occupiedTiles = new Set(["1,1", "1,2", "2,1", "2,2"]);
         const enemyCount = randInt(1, 10);
         enemies = Array.from({ length: enemyCount }, () => {
-          const pos = randomWalkablePosition();
+          const pos = randomWalkablePosition(occupiedTiles);
+          occupiedTiles.add(`${Math.floor(pos.x / TILE)},${Math.floor(pos.y / TILE)}`);
           return {
             ...pos,
             size: 22,
@@ -340,17 +344,22 @@
         });
 
         rupees = Array.from({ length: MAX_RUPEES }, () => ({
-          ...randomWalkablePosition(),
+          ...(() => {
+            const pos = randomWalkablePosition(occupiedTiles);
+            occupiedTiles.add(`${Math.floor(pos.x / TILE)},${Math.floor(pos.y / TILE)}`);
+            return pos;
+          })(),
           taken: false,
         }));
 
         invulnerableTimer = 0;
         arrows = [];
         shootCooldown = 0;
-        let swordPos = randomWalkablePosition();
+        let swordPos = randomWalkablePosition(occupiedTiles);
         while (dist(swordPos, player) < 110) {
-          swordPos = randomWalkablePosition();
+          swordPos = randomWalkablePosition(occupiedTiles);
         }
+        occupiedTiles.add(`${Math.floor(swordPos.x / TILE)},${Math.floor(swordPos.y / TILE)}`);
         swordPickup = {
           ...swordPos,
           taken: false,
