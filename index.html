@@ -180,6 +180,7 @@
       let rupees;
       let invulnerableTimer = 0;
       let arrows;
+      let enemyArrows;
       let shootCooldown = 0;
       let swordPickup;
       let swordSlashTimer = 0;
@@ -346,6 +347,7 @@
         const enemyCount = isShopLevel ? 0 : randInt(1, 10);
         enemies = Array.from({ length: enemyCount }, () => {
           const pos = randomWalkablePosition();
+          const hasBow = Math.random() < 0.4;
           return {
             ...pos,
             size: 22,
@@ -356,10 +358,14 @@
             attackCooldown: 0.5 + Math.random() * 0.8,
             attackTimer: 0,
             attackHit: false,
+            rangedCooldown: 0.9 + Math.random() * 0.9,
+            rangedWindup: 0,
+            rangedShotFired: false,
+            hasBow,
             facing: 1,
             animOffset: Math.random() * Math.PI * 2,
-            hp: 10,
-            maxHp: 10,
+            hp: 5,
+            maxHp: 5,
             alive: true,
           };
         });
@@ -373,6 +379,7 @@
 
         invulnerableTimer = 0;
         arrows = [];
+        enemyArrows = [];
         shootCooldown = 0;
         let swordPos = randomWalkablePosition();
         while (dist(swordPos, player) < 110) {
@@ -394,7 +401,7 @@
         if (isShopLevel) {
           setMessage("Shop-Level! Taste 1: +1 Herz (3 Rubine), Taste 2: +1 Schaden (5 Rubine), dann Tempel betreten.");
         } else {
-          setMessage(`Level ${level}: ${enemyCount} Bokoblins (10 HP) und ${levelWallCount} Wände warten.`);
+          setMessage(`Level ${level}: ${enemyCount} Bokoblins (5 HP, teils mit Bogen) und ${levelWallCount} Wände warten.`);
         }
         updateHud();
       }
@@ -514,7 +521,7 @@
         swordSlashTimer = 0.2;
         for (const enemy of enemies) {
           if (!enemy.alive) continue;
-          if (dist(enemy, player) < 35) {
+          if (dist(enemy, player) < 55) {
             enemy.hp -= player.damage;
             if (enemy.hp <= 0) enemy.alive = false;
           }
@@ -556,6 +563,49 @@
         arrows = arrows.filter((a) => a.alive);
       }
 
+      function shootEnemyArrow(enemy) {
+        const dx = player.x - enemy.x;
+        const dy = player.y - enemy.y;
+        const len = Math.hypot(dx, dy) || 1;
+        enemyArrows.push({
+          x: enemy.x + (dx / len) * 12,
+          y: enemy.y + (dy / len) * 12,
+          dx: dx / len,
+          dy: dy / len,
+          speed: 205,
+          alive: true,
+        });
+      }
+
+      function updateEnemyArrows(dt) {
+        for (const arrow of enemyArrows) {
+          if (!arrow.alive) continue;
+          arrow.x += arrow.dx * arrow.speed * dt;
+          arrow.y += arrow.dy * arrow.speed * dt;
+
+          if (!canMoveTo(arrow.x, arrow.y, 8)) {
+            arrow.alive = false;
+            continue;
+          }
+
+          if (dist(arrow, player) < player.size * 0.45 && invulnerableTimer <= 0) {
+            arrow.alive = false;
+            player.hp -= 1;
+            invulnerableTimer = 1;
+            if (player.hp <= 0) {
+              gameOver = true;
+              endStateTimer = 0;
+              spawnEndParticles("loss");
+              setMessage("Du wurdest von einem Bokoblin-Pfeil besiegt. Drücke R für Neustart.", true);
+            } else {
+              setMessage("Ein Bokoblin-Pfeil hat dich getroffen!", true);
+            }
+          }
+        }
+
+        enemyArrows = enemyArrows.filter((a) => a.alive);
+      }
+
       function updateEnemies(dt) {
         for (const enemy of enemies) {
           if (!enemy.alive) continue;
@@ -563,6 +613,8 @@
           enemy.wanderTimer -= dt;
           enemy.attackCooldown -= dt;
           enemy.attackTimer = Math.max(0, enemy.attackTimer - dt);
+          enemy.rangedCooldown -= dt;
+          enemy.rangedWindup = Math.max(0, enemy.rangedWindup - dt);
           if (enemy.wanderTimer <= 0) {
             enemy.wanderTimer = 0.6 + Math.random() * 1.4;
             const options = [
@@ -603,6 +655,17 @@
           }
 
           const enemyDist = dist(enemy, player);
+          if (enemy.hasBow && enemyDist < 220 && enemy.rangedCooldown <= 0 && enemy.rangedWindup <= 0) {
+            enemy.rangedWindup = 0.18;
+            enemy.rangedShotFired = false;
+            enemy.rangedCooldown = 1.25 + Math.random() * 1.1;
+          }
+
+          if (enemy.hasBow && enemy.rangedWindup > 0.1 && !enemy.rangedShotFired) {
+            enemy.rangedShotFired = true;
+            shootEnemyArrow(enemy);
+          }
+
           if (enemyDist < 48 && enemy.attackCooldown <= 0 && enemy.attackTimer <= 0) {
             enemy.attackTimer = 0.3;
             enemy.attackCooldown = 0.85 + Math.random() * 0.65;
@@ -919,32 +982,52 @@
           ctx.ellipse(enemy.x + 8.2 * depthScale, enemy.y + 5 + armSwing, 2.6 * depthScale, 6 * depthScale, 0.65, 0, Math.PI * 2);
           ctx.fill();
 
-          // Schwert in der rechten Hand
-          const swordHandX = enemy.x + enemy.facing * 8.5 * depthScale;
-          const swordHandY = enemy.y + 4 + armSwing * 0.9;
-          const swordAngle = (enemy.facing < 0 ? Math.PI : 0) + swing * 0.75;
-          ctx.save();
-          ctx.translate(swordHandX, swordHandY);
-          ctx.rotate(swordAngle);
-          ctx.fillStyle = "#7a4f25";
-          ctx.fillRect(-1.3 * depthScale, -1.2 * depthScale, 4 * depthScale, 2.4 * depthScale);
-          ctx.fillStyle = COLORS.steel;
-          ctx.beginPath();
-          ctx.moveTo(2.6 * depthScale, -1.6 * depthScale);
-          ctx.lineTo(13 * depthScale, -1.6 * depthScale);
-          ctx.lineTo(16 * depthScale, 0);
-          ctx.lineTo(13 * depthScale, 1.6 * depthScale);
-          ctx.lineTo(2.6 * depthScale, 1.6 * depthScale);
-          ctx.closePath();
-          ctx.fill();
-          ctx.fillStyle = COLORS.steelDark;
-          ctx.fillRect(2.6 * depthScale, -0.35 * depthScale, 10 * depthScale, 0.7 * depthScale);
-          ctx.restore();
+          if (enemy.hasBow) {
+            const bowHandX = enemy.x + enemy.facing * 8.5 * depthScale;
+            const bowHandY = enemy.y + 4 + armSwing * 0.9;
+            const bowAngle = enemy.facing < 0 ? Math.PI : 0;
+            ctx.save();
+            ctx.translate(bowHandX, bowHandY);
+            ctx.rotate(bowAngle);
+            ctx.strokeStyle = "#7a4f25";
+            ctx.lineWidth = 2 * depthScale;
+            ctx.beginPath();
+            ctx.arc(4 * depthScale, 0, 5.5 * depthScale, -1.2, 1.2);
+            ctx.stroke();
+            ctx.strokeStyle = "#d6c8a7";
+            ctx.beginPath();
+            ctx.moveTo(6 * depthScale, -5 * depthScale);
+            ctx.lineTo(6 * depthScale, 5 * depthScale);
+            ctx.stroke();
+            ctx.restore();
+          } else {
+            // Schwert in der rechten Hand
+            const swordHandX = enemy.x + enemy.facing * 8.5 * depthScale;
+            const swordHandY = enemy.y + 4 + armSwing * 0.9;
+            const swordAngle = (enemy.facing < 0 ? Math.PI : 0) + swing * 0.75;
+            ctx.save();
+            ctx.translate(swordHandX, swordHandY);
+            ctx.rotate(swordAngle);
+            ctx.fillStyle = "#7a4f25";
+            ctx.fillRect(-1.3 * depthScale, -1.2 * depthScale, 4 * depthScale, 2.4 * depthScale);
+            ctx.fillStyle = COLORS.steel;
+            ctx.beginPath();
+            ctx.moveTo(2.6 * depthScale, -1.6 * depthScale);
+            ctx.lineTo(13 * depthScale, -1.6 * depthScale);
+            ctx.lineTo(16 * depthScale, 0);
+            ctx.lineTo(13 * depthScale, 1.6 * depthScale);
+            ctx.lineTo(2.6 * depthScale, 1.6 * depthScale);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = COLORS.steelDark;
+            ctx.fillRect(2.6 * depthScale, -0.35 * depthScale, 10 * depthScale, 0.7 * depthScale);
+            ctx.restore();
+          }
         }
       }
 
-      function drawArrows() {
-        for (const arrow of arrows) {
+      function drawArrows(projectiles = arrows, enemyShot = false) {
+        for (const arrow of projectiles) {
           const angle = Math.atan2(arrow.dy, arrow.dx);
           const depthScale = 0.9 + (arrow.y / WORLD_H) * 0.24;
 
@@ -952,16 +1035,16 @@
           ctx.translate(arrow.x, arrow.y);
           ctx.rotate(angle);
 
-          ctx.fillStyle = COLORS.arrow;
+          ctx.fillStyle = enemyShot ? "#f2ad77" : COLORS.arrow;
           ctx.fillRect(-8 * depthScale, -1.5 * depthScale, 16 * depthScale, 3 * depthScale);
-          ctx.fillStyle = "#efefef";
+          ctx.fillStyle = enemyShot ? "#ffe4d2" : "#efefef";
           ctx.beginPath();
           ctx.moveTo(8 * depthScale, 0);
           ctx.lineTo(13 * depthScale, -3 * depthScale);
           ctx.lineTo(13 * depthScale, 3 * depthScale);
           ctx.closePath();
           ctx.fill();
-          ctx.fillStyle = "#7b5b2c";
+          ctx.fillStyle = enemyShot ? "#8c2e2e" : "#7b5b2c";
           ctx.beginPath();
           ctx.moveTo(-8 * depthScale, 0);
           ctx.lineTo(-12 * depthScale, -3 * depthScale);
@@ -1149,6 +1232,7 @@
 
         updatePlayer(dt);
         updateArrows(dt);
+        updateEnemyArrows(dt);
         updateEnemies(dt);
         updateRupees();
         updateSwordPickup();
@@ -1165,6 +1249,7 @@
         drawSwordPickup();
         drawEnemies();
         drawArrows();
+        drawArrows(enemyArrows, true);
         drawPlayer();
         drawEndParticles();
         drawOverlay();
