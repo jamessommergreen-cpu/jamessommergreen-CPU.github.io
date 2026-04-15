@@ -139,6 +139,7 @@
       const MAP_H = 13;
       const MAX_RUPEES = 8;
       const WORLD_H = MAP_H * TILE;
+      const SAFE_SPAWN_ATTEMPTS = 800;
 
       const COLORS = {
         grass: "#2f8f46",
@@ -180,43 +181,83 @@
       let gameOver = false;
       let win = false;
       let levelWallCount = 0;
+      let worldTime = 0;
 
       function randInt(min, max) {
         return Math.floor(Math.random() * (max - min + 1)) + min;
       }
 
       function generateRandomLevel() {
-        const grid = Array.from({ length: MAP_H }, (_, y) =>
-          Array.from({ length: MAP_W }, (_, x) => (x === 0 || y === 0 || x === MAP_W - 1 || y === MAP_H - 1 ? "#" : ".")),
-        );
-
         const reserved = new Set(["1,1", "1,2", "2,1", "2,2", "3,1", "1,3"]);
-        const wallCount = randInt(8, 34);
 
-        let placedWalls = 0;
-        let tries = 0;
-        while (placedWalls < wallCount && tries < 600) {
-          tries += 1;
-          const x = randInt(1, MAP_W - 2);
-          const y = randInt(1, MAP_H - 2);
-          if (reserved.has(`${x},${y}`)) continue;
-          if (grid[y][x] !== ".") continue;
-          grid[y][x] = "#";
-          placedWalls += 1;
+        for (let attempt = 0; attempt < 140; attempt += 1) {
+          const grid = Array.from({ length: MAP_H }, (_, y) =>
+            Array.from({ length: MAP_W }, (_, x) => (x === 0 || y === 0 || x === MAP_W - 1 || y === MAP_H - 1 ? "#" : ".")),
+          );
+
+          const wallCount = randInt(8, 34);
+
+          let placedWalls = 0;
+          let tries = 0;
+          while (placedWalls < wallCount && tries < 600) {
+            tries += 1;
+            const x = randInt(1, MAP_W - 2);
+            const y = randInt(1, MAP_H - 2);
+            if (reserved.has(`${x},${y}`)) continue;
+            if (grid[y][x] !== ".") continue;
+            grid[y][x] = "#";
+            placedWalls += 1;
+          }
+
+          let templePlaced = false;
+          while (!templePlaced) {
+            const tx = randInt(1, MAP_W - 2);
+            const ty = randInt(1, MAP_H - 2);
+            if (reserved.has(`${tx},${ty}`)) continue;
+            if (grid[ty][tx] !== ".") continue;
+            grid[ty][tx] = "T";
+            templePlaced = true;
+          }
+
+          if (isLevelReachable(grid)) {
+            levelWallCount = placedWalls;
+            return grid.map((row) => row.join(""));
+          }
         }
 
-        let templePlaced = false;
-        while (!templePlaced) {
-          const tx = randInt(1, MAP_W - 2);
-          const ty = randInt(1, MAP_H - 2);
-          if (reserved.has(`${tx},${ty}`)) continue;
-          if (grid[ty][tx] !== ".") continue;
-          grid[ty][tx] = "T";
-          templePlaced = true;
+        levelWallCount = 0;
+        return Array.from({ length: MAP_H }, (_, y) =>
+          Array.from({ length: MAP_W }, (_, x) => (x === 0 || y === 0 || x === MAP_W - 1 || y === MAP_H - 1 ? "#" : ".")).join(""),
+        );
+      }
+
+      function isLevelReachable(grid) {
+        const start = { x: 1, y: 1 };
+        const queue = [start];
+        const visited = new Set([`${start.x},${start.y}`]);
+
+        while (queue.length > 0) {
+          const current = queue.shift();
+          if (grid[current.y][current.x] === "T") return true;
+
+          const nextCells = [
+            [current.x + 1, current.y],
+            [current.x - 1, current.y],
+            [current.x, current.y + 1],
+            [current.x, current.y - 1],
+          ];
+
+          for (const [nx, ny] of nextCells) {
+            if (nx < 1 || ny < 1 || nx >= MAP_W - 1 || ny >= MAP_H - 1) continue;
+            if (grid[ny][nx] === "#") continue;
+            const key = `${nx},${ny}`;
+            if (visited.has(key)) continue;
+            visited.add(key);
+            queue.push({ x: nx, y: ny });
+          }
         }
 
-        levelWallCount = placedWalls;
-        return grid.map((row) => row.join(""));
+        return false;
       }
 
       function setMessage(text, warning = false) {
@@ -246,12 +287,14 @@
       }
 
       function randomWalkablePosition() {
-        while (true) {
+        for (let attempts = 0; attempts < SAFE_SPAWN_ATTEMPTS; attempts += 1) {
           const tx = 1 + Math.floor(Math.random() * (MAP_W - 2));
           const ty = 1 + Math.floor(Math.random() * (MAP_H - 2));
           if (map[ty][tx] !== ".") continue;
           return { x: tx * TILE + TILE / 2, y: ty * TILE + TILE / 2 };
         }
+
+        return { x: TILE * 1.5, y: TILE * 1.5 };
       }
 
       function dist(a, b) {
@@ -281,6 +324,11 @@
             dirX: Math.random() > 0.5 ? 1 : -1,
             dirY: Math.random() > 0.5 ? 1 : -1,
             wanderTimer: 0,
+            attackCooldown: 0.5 + Math.random() * 0.8,
+            attackTimer: 0,
+            attackHit: false,
+            facing: 1,
+            animOffset: Math.random() * Math.PI * 2,
             alive: true,
           };
         });
@@ -305,6 +353,7 @@
         swordDrawn = false;
         gameOver = false;
         win = false;
+        worldTime = 0;
 
         setMessage(`Neues Level! ${enemyCount} Bokoblins und ${levelWallCount} Wände warten auf dich.`);
         updateHud();
@@ -427,6 +476,8 @@
           if (!enemy.alive) continue;
 
           enemy.wanderTimer -= dt;
+          enemy.attackCooldown -= dt;
+          enemy.attackTimer = Math.max(0, enemy.attackTimer - dt);
           if (enemy.wanderTimer <= 0) {
             enemy.wanderTimer = 0.6 + Math.random() * 1.4;
             const options = [
@@ -447,6 +498,9 @@
             enemy.dirX = vx / len;
             enemy.dirY = vy / len;
           }
+          if (enemy.dirX !== 0) {
+            enemy.facing = enemy.dirX < 0 ? -1 : 1;
+          }
 
           const nx = enemy.x + enemy.dirX * enemy.speed * dt;
           const ny = enemy.y + enemy.dirY * enemy.speed * dt;
@@ -463,7 +517,25 @@
             enemy.dirY *= -1;
           }
 
-          if (dist(enemy, player) < 20 && invulnerableTimer <= 0) {
+          const enemyDist = dist(enemy, player);
+          if (enemyDist < 48 && enemy.attackCooldown <= 0 && enemy.attackTimer <= 0) {
+            enemy.attackTimer = 0.3;
+            enemy.attackCooldown = 0.85 + Math.random() * 0.65;
+            enemy.attackHit = false;
+          }
+
+          const swordCanHit = enemy.attackTimer > 0.14 && enemy.attackTimer < 0.24 && enemyDist < 36;
+          if (swordCanHit && !enemy.attackHit && invulnerableTimer <= 0) {
+            enemy.attackHit = true;
+            player.hp -= 1;
+            invulnerableTimer = 1;
+            if (player.hp <= 0) {
+              gameOver = true;
+              setMessage("Du wurdest besiegt. Drücke R für Neustart.", true);
+            } else {
+              setMessage("Treffer vom Bokoblin-Schwert! Kurz unverwundbar.", true);
+            }
+          } else if (enemyDist < 20 && enemy.attackTimer <= 0 && invulnerableTimer <= 0) {
             player.hp -= 1;
             invulnerableTimer = 1;
             if (player.hp <= 0) {
@@ -618,10 +690,20 @@
           const depthScale = 0.9 + (enemy.y / WORLD_H) * 0.25;
           const bodyW = (enemy.size / 2) * depthScale;
           const bodyH = (enemy.size / 2.2) * depthScale;
+          const stride = Math.sin(worldTime * 10 + enemy.animOffset) * 2.8 * depthScale;
+          const swing = enemy.attackTimer > 0 ? Math.sin((enemy.attackTimer / 0.3) * Math.PI) : 0;
+          const armSwing = stride * 0.45 + swing * 3.6 * depthScale;
 
           ctx.fillStyle = COLORS.shadow;
           ctx.beginPath();
           ctx.ellipse(enemy.x, enemy.y + 9 * depthScale, 11 * depthScale, 6 * depthScale, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Beine
+          ctx.fillStyle = "#7f3520";
+          ctx.beginPath();
+          ctx.ellipse(enemy.x - 5.4 * depthScale, enemy.y + 11 + stride, 2.9 * depthScale, 7.3 * depthScale, -0.2, 0, Math.PI * 2);
+          ctx.ellipse(enemy.x + 5.4 * depthScale, enemy.y + 11 - stride, 2.9 * depthScale, 7.3 * depthScale, 0.2, 0, Math.PI * 2);
           ctx.fill();
 
           ctx.fillStyle = COLORS.bokoblin;
@@ -655,11 +737,34 @@
           ctx.fillRect(enemy.x - 4, enemy.y - 1, 1, 1);
           ctx.fillRect(enemy.x + 3, enemy.y - 1, 1, 1);
 
-          ctx.fillStyle = "#7f3520";
+          // Arme
+          ctx.fillStyle = "#8a4327";
           ctx.beginPath();
-          ctx.ellipse(enemy.x - 6, enemy.y + 10, 3, 7, -0.25, 0, Math.PI * 2);
-          ctx.ellipse(enemy.x + 6, enemy.y + 10, 3, 7, 0.25, 0, Math.PI * 2);
+          ctx.ellipse(enemy.x - 8.2 * depthScale, enemy.y + 5 - armSwing, 2.6 * depthScale, 6 * depthScale, -0.65, 0, Math.PI * 2);
+          ctx.ellipse(enemy.x + 8.2 * depthScale, enemy.y + 5 + armSwing, 2.6 * depthScale, 6 * depthScale, 0.65, 0, Math.PI * 2);
           ctx.fill();
+
+          // Schwert in der rechten Hand
+          const swordHandX = enemy.x + enemy.facing * 8.5 * depthScale;
+          const swordHandY = enemy.y + 4 + armSwing * 0.9;
+          const swordAngle = (enemy.facing < 0 ? Math.PI : 0) + swing * 0.75;
+          ctx.save();
+          ctx.translate(swordHandX, swordHandY);
+          ctx.rotate(swordAngle);
+          ctx.fillStyle = "#7a4f25";
+          ctx.fillRect(-1.3 * depthScale, -1.2 * depthScale, 4 * depthScale, 2.4 * depthScale);
+          ctx.fillStyle = COLORS.steel;
+          ctx.beginPath();
+          ctx.moveTo(2.6 * depthScale, -1.6 * depthScale);
+          ctx.lineTo(13 * depthScale, -1.6 * depthScale);
+          ctx.lineTo(16 * depthScale, 0);
+          ctx.lineTo(13 * depthScale, 1.6 * depthScale);
+          ctx.lineTo(2.6 * depthScale, 1.6 * depthScale);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = COLORS.steelDark;
+          ctx.fillRect(2.6 * depthScale, -0.35 * depthScale, 10 * depthScale, 0.7 * depthScale);
+          ctx.restore();
         }
       }
 
@@ -725,7 +830,6 @@
           ctx.ellipse(player.x + 5 * depthScale, player.y - 6 * depthScale, 3 * depthScale, 3 * depthScale, 0, 0, Math.PI * 2);
           ctx.ellipse(player.x - 7.2 * depthScale, player.y - 4.5 * depthScale, 1.6 * depthScale, 2.8 * depthScale, -0.2, 0, Math.PI * 2);
           ctx.ellipse(player.x + 7.2 * depthScale, player.y - 4.5 * depthScale, 1.6 * depthScale, 2.8 * depthScale, 0.2, 0, Math.PI * 2);
-          ctx.ellipse(player.x + 2.5 * depthScale, player.y - 1.5 * depthScale, 2 * depthScale, 5.5 * depthScale, 0.4, 0, Math.PI * 2);
           ctx.fill();
           ctx.fillStyle = "#cde3ff";
           ctx.fillRect(player.x - 2.5 * depthScale, player.y - 6.8 * depthScale, 1.2 * depthScale, 1.2 * depthScale);
@@ -857,6 +961,7 @@
 
       function update(dt) {
         if (gameOver || win) return;
+        worldTime += dt;
 
         if (invulnerableTimer > 0) invulnerableTimer -= dt;
         if (shootCooldown > 0) shootCooldown -= dt;
