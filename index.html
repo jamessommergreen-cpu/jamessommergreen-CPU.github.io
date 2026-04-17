@@ -144,6 +144,7 @@
       const MAX_RUPEES = 8;
       const WORLD_H = MAP_H * TILE;
       const SAFE_SPAWN_ATTEMPTS = 800;
+      const ENEMY_MIN_SPAWN_RADIUS_TILES = 5;
 
       const COLORS = {
         grass: "#1f3f54",
@@ -325,15 +326,28 @@
         );
       }
 
-      function randomWalkablePosition() {
+      function randomWalkablePosition(avoidTarget = null, minDistance = 0) {
+        let fallback = null;
+        let fallbackDistance = -1;
+
         for (let attempts = 0; attempts < SAFE_SPAWN_ATTEMPTS; attempts += 1) {
           const tx = 1 + Math.floor(Math.random() * (MAP_W - 2));
           const ty = 1 + Math.floor(Math.random() * (MAP_H - 2));
           if (map[ty][tx] !== ".") continue;
-          return { x: tx * TILE + TILE / 2, y: ty * TILE + TILE / 2 };
+
+          const pos = { x: tx * TILE + TILE / 2, y: ty * TILE + TILE / 2 };
+          if (!avoidTarget || dist(pos, avoidTarget) >= minDistance) {
+            return pos;
+          }
+
+          const candidateDistance = dist(pos, avoidTarget);
+          if (candidateDistance > fallbackDistance) {
+            fallback = pos;
+            fallbackDistance = candidateDistance;
+          }
         }
 
-        return { x: TILE * 1.5, y: TILE * 1.5 };
+        return fallback || { x: TILE * 1.5, y: TILE * 1.5 };
       }
 
       function dist(a, b) {
@@ -366,7 +380,7 @@
 
         const enemyCount = isShopLevel ? 0 : randInt(1, 5);
         enemies = Array.from({ length: enemyCount }, () => {
-          const pos = randomWalkablePosition();
+          const pos = randomWalkablePosition(player, TILE * ENEMY_MIN_SPAWN_RADIUS_TILES);
           const hasBow = Math.random() < 0.4;
           return {
             ...pos,
