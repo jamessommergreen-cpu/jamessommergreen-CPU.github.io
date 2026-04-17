@@ -199,6 +199,9 @@
       let shopStations = null;
       let shopTouchCooldown = 0;
       let shopChoiceMade = false;
+      let secretPassage = null;
+      let secretBonusClaimed = false;
+      let secretNpcEvent = null;
 
       function randInt(min, max) {
         return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -255,6 +258,34 @@
         return Array.from({ length: MAP_H }, (_, y) =>
           Array.from({ length: MAP_W }, (_, x) => (x === 0 || y === 0 || x === MAP_W - 1 || y === MAP_H - 1 ? "#" : ".")).join(""),
         );
+      }
+
+      function applyLevelOneSecretPassage() {
+        if (level !== 1) {
+          secretPassage = null;
+          return;
+        }
+
+        const wallTop = 4;
+        const wallBottom = 8;
+        const wallLeft = MAP_W - 4;
+        const wallRight = MAP_W - 2;
+        const holeX = MAP_W - 2;
+        const holeY = 6;
+
+        const grid = map.map((row) => row.split(""));
+        for (let y = wallTop; y <= wallBottom; y += 1) {
+          for (let x = wallLeft; x <= wallRight; x += 1) {
+            grid[y][x] = "#";
+          }
+        }
+
+        grid[holeY][holeX] = "G";
+        grid[holeY][holeX - 1] = ".";
+        grid[holeY][holeX - 2] = ".";
+        map = grid.map((row) => row.join(""));
+
+        secretPassage = { x: holeX, y: holeY };
       }
 
 
@@ -357,6 +388,7 @@
       function setupLevel(keepStats = true) {
         const isShopLevel = level % 3 === 0;
         map = isShopLevel ? generateShopLevel() : generateRandomLevel();
+        if (!isShopLevel) applyLevelOneSecretPassage();
 
         if (!keepStats || !player) {
           player = {
@@ -436,6 +468,10 @@
           : null;
         shopTouchCooldown = 0;
         shopChoiceMade = false;
+        secretNpcEvent = null;
+        if (!keepStats || !player) {
+          secretBonusClaimed = false;
+        }
         worldTime = 0;
         endStateTimer = 0;
         endParticles = [];
@@ -803,6 +839,31 @@
         updateHud();
       }
 
+      function updateSecretPassage(dt) {
+        if (secretNpcEvent) {
+          secretNpcEvent.timer = Math.max(0, secretNpcEvent.timer - dt);
+          if (secretNpcEvent.timer <= 0) {
+            secretNpcEvent = null;
+          }
+        }
+
+        if (level !== 1 || inShop || !secretPassage || secretBonusClaimed) return;
+        const tx = Math.floor(player.x / TILE);
+        const ty = Math.floor(player.y / TILE);
+        if (tx !== secretPassage.x || ty !== secretPassage.y) return;
+
+        secretBonusClaimed = true;
+        player.hp += 2;
+        player.bowDamage += 2;
+        player.swordDamage += 2;
+        secretNpcEvent = {
+          x: Math.max(86, Math.min(canvas.width - 86, player.x - 54)),
+          y: Math.max(86, Math.min(canvas.height - 86, player.y - 48)),
+          timer: 5,
+        };
+        setMessage("Geheimer Gang! NPC: „Du hast mich gefunden.“ Du bekommst +2 Herzen und +2 Schaden.");
+      }
+
 
       function updateShopStations(dt) {
         if (!inShop || !shopStations) return;
@@ -925,6 +986,19 @@
               ctx.fillRect(px, py, TILE, TILE);
               ctx.fillStyle = COLORS.shopDoor;
               ctx.fillRect(px + 10, py + 10, 12, 18);
+            } else if (cell === "G") {
+              ctx.fillStyle = COLORS.wall;
+              ctx.fillRect(px, py, TILE, TILE);
+              const holeGrad = ctx.createRadialGradient(px + TILE / 2, py + TILE / 2, 2, px + TILE / 2, py + TILE / 2, 12);
+              holeGrad.addColorStop(0, "#000");
+              holeGrad.addColorStop(1, "#1b2530");
+              ctx.fillStyle = holeGrad;
+              ctx.beginPath();
+              ctx.ellipse(px + TILE / 2, py + TILE / 2, 9, 12, 0, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.strokeStyle = "#4b6074";
+              ctx.lineWidth = 1.4;
+              ctx.stroke();
             } else {
               ctx.fillStyle = (x + y) % 2 === 0 ? COLORS.grass : COLORS.grassAlt;
               ctx.fillRect(px, py, TILE, TILE);
@@ -1057,6 +1131,45 @@
         ctx.font = "14px Segoe UI";
         ctx.fillText("Wähle eins: Herz oder +1 Schaden!", npcX, bubbleY + 20);
         ctx.fillText("Nur eine Wahl pro Shop – danach direkt zum Tempel.", npcX, bubbleY + 38);
+      }
+
+      function drawSecretNpc() {
+        if (!secretNpcEvent) return;
+        const npcX = secretNpcEvent.x;
+        const npcY = secretNpcEvent.y;
+
+        ctx.fillStyle = "rgba(0,0,0,0.35)";
+        ctx.beginPath();
+        ctx.ellipse(npcX, npcY + 22, 14, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#d8ad79";
+        ctx.beginPath();
+        ctx.arc(npcX, npcY - 12, 9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#2f6b4f";
+        ctx.fillRect(npcX - 10, npcY - 3, 20, 24);
+
+        const bubbleW = 270;
+        const bubbleH = 42;
+        const bubbleX = npcX - bubbleW / 2;
+        const bubbleY = npcY - 66;
+        ctx.fillStyle = "rgba(20, 20, 20, 0.88)";
+        ctx.strokeStyle = "#7de0a4";
+        ctx.lineWidth = 2;
+        if (typeof ctx.roundRect === "function") {
+          ctx.beginPath();
+          ctx.roundRect(bubbleX, bubbleY, bubbleW, bubbleH, 8);
+        } else {
+          roundedRectPath(bubbleX, bubbleY, bubbleW, bubbleH, 8);
+        }
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#d8ffd7";
+        ctx.font = "14px Segoe UI";
+        ctx.textAlign = "center";
+        ctx.fillText("Du hast mich gefunden.", npcX, bubbleY + 17);
+        ctx.fillText("+2 Herzen und +2 Schaden für dich!", npcX, bubbleY + 34);
       }
 
       function drawSwordPickup() {
@@ -1465,6 +1578,7 @@
         updateEnemies(dt);
         updateRupees();
         updateSwordPickup();
+        updateSecretPassage(dt);
         updateShopStations(dt);
         if (!inShop && player.rupees === MAX_RUPEES && enemies.every((enemy) => !enemy.alive)) {
           setMessage("Alle Bokoblins besiegt! Betritt jetzt den Tempel für das nächste Level.");
@@ -1477,6 +1591,7 @@
         drawMap();
         drawShopStations();
         drawShopNpc();
+        drawSecretNpc();
         drawRupees();
         drawSwordPickup();
         drawEnemies();
