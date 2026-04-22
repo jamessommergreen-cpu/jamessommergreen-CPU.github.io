@@ -50,6 +50,91 @@
         justify-content: space-between;
       }
 
+      .menu-area {
+        position: absolute;
+        top: 0.8rem;
+        right: 0.8rem;
+        z-index: 5;
+      }
+
+      .menu-toggle {
+        border: 1px solid var(--panel-border);
+        background: rgba(19, 39, 56, 0.95);
+        color: var(--text);
+        width: 2.4rem;
+        height: 2.4rem;
+        border-radius: 0.5rem;
+        font-size: 1.2rem;
+        cursor: pointer;
+      }
+
+      .menu-panel {
+        margin-top: 0.5rem;
+        min-width: 180px;
+        display: none;
+        flex-direction: column;
+        border: 1px solid var(--panel-border);
+        background: rgba(19, 39, 56, 0.98);
+        border-radius: 0.5rem;
+        overflow: hidden;
+      }
+
+      .menu-panel.open {
+        display: flex;
+      }
+
+      .menu-panel a {
+        padding: 0.7rem 0.9rem;
+        color: var(--text);
+        text-decoration: none;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .menu-panel a:first-child {
+        border-top: 0;
+      }
+
+      .menu-panel a:hover,
+      .menu-panel a:focus-visible {
+        background: rgba(247, 215, 116, 0.14);
+      }
+
+      .startscreen {
+        position: absolute;
+        inset: 0;
+        z-index: 6;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.8rem;
+        background: rgba(8, 16, 24, 0.9);
+        text-align: center;
+        padding: 1rem;
+      }
+
+      .startscreen.hidden {
+        display: none;
+      }
+
+      .startscreen h1 {
+        margin: 0;
+        color: var(--accent);
+      }
+
+      .startscreen p {
+        margin: 0;
+      }
+
+      .startscreen button {
+        border: 1px solid var(--panel-border);
+        background: var(--panel);
+        color: var(--text);
+        padding: 0.6rem 1rem;
+        border-radius: 0.5rem;
+        cursor: pointer;
+      }
+
       .stats {
         display: flex;
         flex-wrap: wrap;
@@ -93,6 +178,27 @@
   </head>
   <body>
     <div class="game-shell">
+      <div class="startscreen" id="startscreen">
+        <h1>Mini Zelda</h1>
+        <p>Drücke auf „Spiel starten“, um loszulegen.</p>
+        <button id="startGameButton" type="button">Spiel starten</button>
+        <div class="menu-area">
+          <button class="menu-toggle" id="menuToggleStart" type="button" aria-expanded="false" aria-controls="menuPanelStart">☰</button>
+          <nav class="menu-panel" id="menuPanelStart" aria-label="Hamburger-Menü auf der Startseite">
+            <a href="index.html">Startseite</a>
+            <a href="biografien.html">Biografien</a>
+          </nav>
+        </div>
+      </div>
+
+      <div class="menu-area">
+        <button class="menu-toggle" id="menuToggleDefault" type="button" aria-expanded="false" aria-controls="menuPanelDefault">☰</button>
+        <nav class="menu-panel" id="menuPanelDefault" aria-label="Hamburger-Menü im Standard-Layout">
+          <a href="index.html">Startseite</a>
+          <a href="biografien.html">Biografien</a>
+        </nav>
+      </div>
+
       <div class="hud">
         <div class="stats">
           <div class="stat">🧭 Level: <strong id="level">1</strong></div>
@@ -110,6 +216,46 @@
     </div>
 
     <script>
+      const startscreenEl = document.getElementById("startscreen");
+      const startGameButton = document.getElementById("startGameButton");
+      const menuToggleStart = document.getElementById("menuToggleStart");
+      const menuPanelStart = document.getElementById("menuPanelStart");
+      const menuToggleDefault = document.getElementById("menuToggleDefault");
+      const menuPanelDefault = document.getElementById("menuPanelDefault");
+
+      function toggleMenu(buttonEl, panelEl) {
+        const isOpen = panelEl.classList.toggle("open");
+        buttonEl.setAttribute("aria-expanded", String(isOpen));
+      }
+
+      function closeMenu(buttonEl, panelEl) {
+        panelEl.classList.remove("open");
+        buttonEl.setAttribute("aria-expanded", "false");
+      }
+
+      menuToggleStart.addEventListener("click", () => {
+        toggleMenu(menuToggleStart, menuPanelStart);
+        closeMenu(menuToggleDefault, menuPanelDefault);
+      });
+
+      menuToggleDefault.addEventListener("click", () => {
+        toggleMenu(menuToggleDefault, menuPanelDefault);
+        closeMenu(menuToggleStart, menuPanelStart);
+      });
+
+      document.addEventListener("click", (event) => {
+        if (!menuPanelStart.contains(event.target) && event.target !== menuToggleStart) {
+          closeMenu(menuToggleStart, menuPanelStart);
+        }
+        if (!menuPanelDefault.contains(event.target) && event.target !== menuToggleDefault) {
+          closeMenu(menuToggleDefault, menuPanelDefault);
+        }
+      });
+
+      startGameButton.addEventListener("click", () => {
+        startscreenEl.classList.add("hidden");
+      });
+
       const canvas = document.getElementById("game");
       const ctx = canvas.getContext("2d");
 
